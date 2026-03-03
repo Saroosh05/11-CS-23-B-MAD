@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFFFFF">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:id="@+id/tvWelcome"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Welcome, User!"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="#6200EE"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Answer all questions and tap Submit."
+            android:textSize="14sp"
+            android:textColor="#888888"
+            android:layout_marginBottom="20dp" />
+
+        <!-- Question 1 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Q1. What is the capital of France?"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#333333"
+            android:layout_marginBottom="8dp" />
+
+        <RadioGroup
+            android:id="@+id/rgQuestion1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:paddingStart="8dp">
+
+            <RadioButton
+                android:id="@+id/q1a"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="A) London"
+                android:textSize="15sp"
+                android:padding="6dp" />
+
+            <RadioButton
+                android:id="@+id/q1b"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="B) Paris"
+                android:textSize="15sp"
+                android:padding="6dp" />
+
+            <RadioButton
+                android:id="@+id/q1c"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="C) Berlin"
+                android:textSize="15sp"
+                android:padding="6dp" />
+
+            <RadioButton
+                android:id="@+id/q1d"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="D) Madrid"
+                android:textSize="15sp"
+                android:padding="6dp" />
+        </RadioGroup>
+
+        <!-- Question 2 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Q2. Which planet is known as the Red Planet?"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#333333"
+            android:layout_marginBottom="8dp" />
+
+        <RadioGroup
+            android:id="@+id/rgQuestion2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:paddingStart="8dp">
+
+            <RadioButton
+                android:id="@+id/q2a"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="A) Venus"
+                android:textSize="15sp"
+                android:padding="6dp" />
+
+            <RadioButton
+                android:id="@+id/q2b"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="B) Jupiter"
+                android:textSize="15sp"
+                android:padding="6dp" />
+
+            <RadioButton
+                android:id="@+id/q2c"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="C) Mars"
+                android:textSize="15sp"
+                android:padding="6dp" />
+
+            <RadioButton
+                android:id="@+id/q2d"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="D) Saturn"
+                android:textSize="15sp"
+                android:padding="6dp" />
+        </RadioGroup>
+
+        <!-- Question 3 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Q3. What is the largest ocean on Earth?"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#333333"
+            android:layout_marginBottom="8dp" />
+
+        <RadioGroup
+            android:id="@+id/rgQuestion3"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:paddingStart="8dp">
+
+            <RadioButton
+                android:id="@+id/q3a"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="A) Atlantic Ocean"
+                android:textSize="15sp"
+                android:padding="6dp" />
+
+            <RadioButton
+                android:id="@+id/q3b"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="B) Indian Ocean"
+                android:textSize="15sp"
+                android:padding="6dp" />
+
+            <RadioButton
+                android:id="@+id/q3c"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="C) Pacific Ocean"
+                android:textSize="15sp"
+                android:padding="6dp" />
+
+            <RadioButton
+                android:id="@+id/q3d"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="D) Arctic Ocean"
+                android:textSize="15sp"
+                android:padding="6dp" />
+        </RadioGroup>
+
+        <!-- Question 4 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Q4. How many continents are there on Earth?"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#333333"
+            android:layout_marginBottom="8dp" />
+
+        <RadioGroup
+            android:id="@+id/rgQuestion4"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:paddingStart="8dp">
+
+            <RadioButton
+                android:id="@+id/q4a"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="A) 5"
+                android:textSize="15sp"
+                android:padding="6dp" />
+
+            <RadioButton
+                android:id="@+id/q4b"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="B) 6"
+                android:textSize="15sp"
+                android:padding="6dp" />
+
+            <RadioButton
+                android:id="@+id/q4c"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="C) 7"
+                android:textSize="15sp"
+                android:padding="6dp" />
+
+            <RadioButton
+                android:id="@+id/q4d"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="D) 8"
+                android:textSize="15sp"
+                android:padding="6dp" />
+        </RadioGroup>
+
+        <!-- Question 5 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Q5. Who painted the Mona Lisa?"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#333333"
+            android:layout_marginBottom="8dp" />
+
+        <RadioGroup
+            android:id="@+id/rgQuestion5"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:paddingStart="8dp">
+
+            <RadioButton
+                android:id="@+id/q5a"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="A) Pablo Picasso"
+                android:textSize="15sp"
+                android:padding="6dp" />
+
+            <RadioButton
+                android:id="@+id/q5b"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="B) Leonardo da Vinci"
+                android:textSize="15sp"
+                android:padding="6dp" />
+
+            <RadioButton
+                android:id="@+id/q5c"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="C) Vincent van Gogh"
+                android:textSize="15sp"
+                android:padding="6dp" />
+
+            <RadioButton
+                android:id="@+id/q5d"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="D) Rembrandt"
+                android:textSize="15sp"
+                android:padding="6dp" />
+        </RadioGroup>
+
+        <Button
+            android:id="@+id/btnSubmit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Submit"
+            android:textSize="18sp"
+            android:padding="14dp"
+            android:backgroundTint="#6200EE"
+            android:layout_marginBottom="16dp" />
+
+    </LinearLayout>
+</ScrollView>
