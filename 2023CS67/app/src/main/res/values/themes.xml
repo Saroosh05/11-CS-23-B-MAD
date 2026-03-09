@@ -1,0 +1,17 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <style name="Base.Theme._2023CS67" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="android:statusBarColor">@color/colorPrimaryDark</item>
+        <item name="android:windowBackground">@color/colorBackground</item>
+    </style>
+
+    <style name="Theme._2023CS67" parent="Base.Theme._2023CS67" />
+
+    <style name="Theme.Splash" parent="Theme._2023CS67">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:statusBarColor">@color/colorGradientEnd</item>
+    </style>
+
+</resources>
