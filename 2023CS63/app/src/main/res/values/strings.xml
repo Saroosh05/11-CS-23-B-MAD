@@ -1,0 +1,50 @@
+<resources>
+    <string name="app_name">SmartCare Booking</string>
+    <string name="welcome_text">Welcome to the SmartCare Booking Booking App</string>
+    <string name="main_welcome">SmartCare Booking</string>
+    <string name="app_description">Your quick and easy way to book medical appointments.</string>
+    <string name="book_appointment">Book Appointment</string>
+    <string name="book_your_appointment">Book Your Appointment</string>
+    <string name="full_name">Full Name</string>
+    <string name="phone_number">Phone Number</string>
+    <string name="email_address">Email Address</string>
+    <string name="appointment_type">Appointment Type</string>
+    <string name="select_date">Select Appointment Date</string>
+    <string name="no_date_selected">No date selected</string>
+    <string name="selected_date_label">Selected Date: %s</string>
+    <string name="select_time">Select Appointment Time</string>
+    <string name="no_time_selected">No time selected</string>
+    <string name="selected_time_label">Selected Time: %s</string>
+    <string name="select_gender">Select Gender</string>
+    <string name="male">Male</string>
+    <string name="female">Female</string>
+    <string name="other">Other</string>
+    <string name="accept_terms">Accept Terms and Conditions</string>
+    <string name="confirm_booking">Confirm Booking</string>
+    <string name="booking_confirmation">Booking Confirmation</string>
+    <string name="back_to_home">Back to Home</string>
+
+    <string name="confirm_name">Name: %s</string>
+    <string name="confirm_phone">Phone: %s</string>
+    <string name="confirm_email">Email: %s</string>
+    <string name="confirm_type">Type: %s</string>
+    <string name="confirm_date">Date: %s</string>
+    <string name="confirm_time">Time: %s</string>
+    <string name="confirm_gender">Gender: %s</string>
+
+    <string name="err_name">Name is required</string>
+    <string name="err_phone">Phone number is required</string>
+    <string name="err_email">Email is required</string>
+    <string name="err_date">Please select a date</string>
+    <string name="err_time">Please select a time</string>
+    <string name="err_gender">Please select gender</string>
+    <string name="err_terms">Please accept Terms and Conditions</string>
+
+    <string-array name="appointment_types">
+        <item>Doctor Consultation</item>
+        <item>Dentist Appointment</item>
+        <item>Eye Specialist</item>
+        <item>Skin Specialist</item>
+        <item>General Checkup</item>
+    </string-array>
+</resources>
