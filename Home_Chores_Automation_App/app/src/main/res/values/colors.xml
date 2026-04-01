@@ -2,4 +2,31 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Primary (Teal) -->
+    <color name="primary">#00897B</color>
+    <color name="primary_dark">#00695C</color>
+    <color name="primary_light">#B2DFDB</color>
+    <color name="primary_container">#E0F2F1</color>
+
+    <!-- Secondary (blue-grey) -->
+    <color name="secondary">#546E7A</color>
+    <color name="secondary_container">#ECEFF1</color>
+
+    <!-- Backgrounds -->
+    <color name="background">#F5F5F5</color>
+    <color name="surface">#FFFFFF</color>
+
+    <!-- Text -->
+    <color name="on_primary">#FFFFFF</color>
+    <color name="on_surface">#212121</color>
+    <color name="text_secondary">#757575</color>
+    <color name="text_hint">#BDBDBD</color>
+
+    <!-- Status -->
+    <color name="error">#B3261E</color>
+    <color name="error_container">#FFDAD6</color>
+
+    <!-- Divider -->
+    <color name="divider">#E0E0E0</color>
 </resources>

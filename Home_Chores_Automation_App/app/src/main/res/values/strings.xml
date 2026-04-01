@@ -1,3 +1,19 @@
 <resources>
-    <string name="app_name">Home_Chores_Automation_App</string>
+    <string name="app_name">Home Chores</string>
+    <string name="app_tagline">Group Task Manager</string>
+
+    <!-- Auth screens -->
+    <string name="login">Login</string>
+    <string name="register">Register</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="confirm_password">Confirm Password</string>
+    <string name="full_name">Full Name</string>
+    <string name="welcome_back">Welcome Back!</string>
+    <string name="sign_in_subtitle">Sign in to manage your chores</string>
+    <string name="create_account">Create Account</string>
+    <string name="register_subtitle">Join your group task manager</string>
+    <string name="dont_have_account">Don\u2019t have an account? Register</string>
+    <string name="already_have_account">Already have an account? Login</string>
+    <string name="logout">Logout</string>
 </resources>
