@@ -16,4 +16,11 @@
     <string name="dont_have_account">Don\u2019t have an account? Register</string>
     <string name="already_have_account">Already have an account? Login</string>
     <string name="logout">Logout</string>
+
+    <!-- Groups -->
+    <string name="my_groups">My Groups</string>
+    <string name="no_groups_yet">No Groups Yet</string>
+    <string name="create_group">Create Group</string>
+    <string name="group_name">Group Name</string>
+    <string name="group_type">Group Type</string>
 </resources>

@@ -2,6 +2,7 @@ package com.example.home_chores_automation_app.data.repository
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.example.home_chores_automation_app.data.model.Group
 import com.example.home_chores_automation_app.data.model.User
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -54,5 +55,37 @@ class AppRepository private constructor(context: Context) {
         val list = loadUsers()
         val idx = list.indexOfFirst { it.id == user.id }
         if (idx >= 0) { list[idx] = user; saveUsers(list) }
+    }
+
+    // ── GROUPS ───────────────────────────────────────────────────────────────
+
+    private val groupListType = object : TypeToken<MutableList<Group>>() {}.type
+
+    private fun loadGroups(): MutableList<Group> {
+        val json = getString("groups") ?: return mutableListOf()
+        return gson.fromJson(json, groupListType)
+    }
+
+    private fun saveGroups(list: MutableList<Group>) = putString("groups", gson.toJson(list))
+
+    fun createGroup(group: Group) {
+        val list = loadGroups()
+        list.add(group)
+        saveGroups(list)
+    }
+
+    fun getGroupsForUser(userId: String): List<Group> =
+        loadGroups().filter { it.adminId == userId || it.memberIds.contains(userId) }
+
+    fun findGroupById(id: String): Group? =
+        loadGroups().find { it.id == id }
+
+    fun findGroupByInviteCode(code: String): Group? =
+        loadGroups().find { it.inviteCode.equals(code, ignoreCase = true) }
+
+    fun updateGroup(group: Group) {
+        val list = loadGroups()
+        val idx = list.indexOfFirst { it.id == group.id }
+        if (idx >= 0) { list[idx] = group; saveGroups(list) }
     }
 }
