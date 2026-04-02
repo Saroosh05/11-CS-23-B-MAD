@@ -7,7 +7,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.home_chores_automation_app.R
 import com.example.home_chores_automation_app.auth.AuthActivity
 import com.example.home_chores_automation_app.data.prefs.SessionManager
 import com.example.home_chores_automation_app.data.repository.AppRepository
@@ -47,9 +49,17 @@ class HomeFragment : Fragment() {
         }
 
         binding.fab.setOnClickListener {
-            Toast.makeText(requireContext(), "Create group – coming in next step!", Toast.LENGTH_SHORT).show()
+            findNavController().navigate(R.id.action_home_to_createGroup)
         }
 
+        loadGroups(repo, userId)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val session = SessionManager(requireContext())
+        val repo = AppRepository.getInstance(requireContext())
+        val userId = session.getCurrentUserId() ?: return
         loadGroups(repo, userId)
     }
 
