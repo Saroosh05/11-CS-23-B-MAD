@@ -58,7 +58,7 @@
             android:text="Home"
             android:textSize="12sp"
             android:textColor="@color/primary"
-            android:background="@color/primary_container"
+            android:background="@drawable/bg_badge"
             android:paddingStart="10dp"
             android:paddingEnd="10dp"
             android:paddingTop="4dp"
