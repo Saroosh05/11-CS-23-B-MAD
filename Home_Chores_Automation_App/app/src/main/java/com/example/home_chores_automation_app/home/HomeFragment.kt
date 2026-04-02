@@ -5,7 +5,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -77,7 +76,8 @@ class HomeFragment : Fragment() {
             binding.rvGroups.visibility = View.VISIBLE
             binding.layoutEmpty.visibility = View.GONE
             binding.rvGroups.adapter = GroupAdapter(groups) { group ->
-                Toast.makeText(requireContext(), "Tapped: ${group.name}", Toast.LENGTH_SHORT).show()
+                val bundle = android.os.Bundle().apply { putString("groupId", group.id) }
+                findNavController().navigate(R.id.action_home_to_groupDetail, bundle)
             }
         }
     }
