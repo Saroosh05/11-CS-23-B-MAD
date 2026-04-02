@@ -120,7 +120,21 @@
 
         </LinearLayout>
 
-        <!-- Extended FAB -->
+        <!-- Join Group FAB -->
+        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+            android:id="@+id/fabJoin"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="88dp"
+            android:text="Join Group"
+            android:textColor="@color/white"
+            app:icon="@drawable/ic_person_add"
+            app:iconTint="@color/white"
+            app:backgroundTint="@color/primary_dark" />
+
+        <!-- New Group FAB -->
         <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
             android:id="@+id/fab"
             android:layout_width="wrap_content"

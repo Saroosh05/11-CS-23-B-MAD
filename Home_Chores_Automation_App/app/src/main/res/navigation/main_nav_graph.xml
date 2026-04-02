@@ -13,6 +13,9 @@
         <action
             android:id="@+id/action_home_to_createGroup"
             app:destination="@id/createGroupFragment" />
+        <action
+            android:id="@+id/action_home_to_joinGroup"
+            app:destination="@id/joinGroupFragment" />
     </fragment>
 
     <fragment
@@ -20,5 +23,11 @@
         android:name="com.example.home_chores_automation_app.home.CreateGroupFragment"
         android:label="Create Group"
         tools:layout="@layout/fragment_create_group" />
+
+    <fragment
+        android:id="@+id/joinGroupFragment"
+        android:name="com.example.home_chores_automation_app.home.JoinGroupFragment"
+        android:label="Join Group"
+        tools:layout="@layout/fragment_join_group" />
 
 </navigation>

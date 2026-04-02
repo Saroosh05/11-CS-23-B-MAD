@@ -52,6 +52,10 @@ class HomeFragment : Fragment() {
             findNavController().navigate(R.id.action_home_to_createGroup)
         }
 
+        binding.fabJoin.setOnClickListener {
+            findNavController().navigate(R.id.action_home_to_joinGroup)
+        }
+
         loadGroups(repo, userId)
     }
 
