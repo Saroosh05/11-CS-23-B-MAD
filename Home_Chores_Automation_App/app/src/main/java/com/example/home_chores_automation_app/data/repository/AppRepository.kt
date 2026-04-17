@@ -91,6 +91,12 @@ class AppRepository private constructor(context: Context) {
         if (idx >= 0) { list[idx] = group; saveGroups(list) }
     }
 
+    fun deleteGroup(groupId: String) {
+        val list = loadGroups()
+        list.removeAll { it.id == groupId }
+        saveGroups(list)
+    }
+
     // ── TASKS ────────────────────────────────────────────────────────────────
 
     private val taskListType = object : TypeToken<MutableList<Task>>() {}.type
@@ -115,6 +121,18 @@ class AppRepository private constructor(context: Context) {
         val list = loadTasks()
         val idx = list.indexOfFirst { it.id == task.id }
         if (idx >= 0) { list[idx] = task; saveTasks(list) }
+    }
+
+    fun deleteTask(taskId: String) {
+        val list = loadTasks()
+        list.removeAll { it.id == taskId }
+        saveTasks(list)
+    }
+
+    fun deleteTasksForGroup(groupId: String) {
+        val list = loadTasks()
+        list.removeAll { it.groupId == groupId }
+        saveTasks(list)
     }
 
     // ── NOTIFICATIONS ────────────────────────────────────────────────────────

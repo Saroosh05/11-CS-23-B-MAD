@@ -47,6 +47,13 @@ class TasksFragment : Fragment() {
             findNavController().popBackStack()
         }
 
+        // Only admin can add tasks
+        if (currentUserId == repo.findGroupById(groupId)?.adminId) {
+            binding.fab.visibility = View.VISIBLE
+        } else {
+            binding.fab.visibility = View.GONE
+        }
+
         binding.fab.setOnClickListener {
             val bundle = Bundle().apply { putString("groupId", groupId) }
             findNavController().navigate(R.id.action_tasks_to_addTask, bundle)
@@ -76,10 +83,23 @@ class TasksFragment : Fragment() {
         } else {
             binding.rvTasks.visibility = View.VISIBLE
             binding.layoutEmpty.visibility = View.GONE
-            binding.rvTasks.adapter = TaskAdapter(tasks, memberNames, currentUserId, group.adminId) { task, isChecked ->
-                repo.updateTask(task)
-                updateCountLabel(tasks)
-            }
+            binding.rvTasks.adapter = TaskAdapter(tasks, memberNames, currentUserId, group.adminId,
+                onCheckedChange = { task, _ ->
+                    repo.updateTask(task)
+                    updateCountLabel(tasks)
+                },
+                onEdit = { task ->
+                    val bundle = Bundle().apply {
+                        putString("taskId", task.id)
+                        putString("groupId", groupId)
+                    }
+                    findNavController().navigate(R.id.action_tasks_to_editTask, bundle)
+                },
+                onDelete = { task ->
+                    repo.deleteTask(task.id)
+                    loadTasks()
+                }
+            )
         }
     }
 

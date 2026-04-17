@@ -8,10 +8,12 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.home_chores_automation_app.R
+import com.example.home_chores_automation_app.data.prefs.SessionManager
 import com.example.home_chores_automation_app.data.repository.AppRepository
 import com.example.home_chores_automation_app.databinding.FragmentGroupDetailBinding
 
@@ -33,6 +35,7 @@ class GroupDetailFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val repo = AppRepository.getInstance(requireContext())
+        val currentUserId = SessionManager(requireContext()).getCurrentUserId() ?: return
 
         val groupId = arguments?.getString("groupId") ?: return
         val group = repo.findGroupById(groupId) ?: return
@@ -61,6 +64,24 @@ class GroupDetailFragment : Fragment() {
         binding.btnViewTasks.setOnClickListener {
             val bundle = Bundle().apply { putString("groupId", groupId) }
             findNavController().navigate(R.id.action_groupDetail_to_tasks, bundle)
+        }
+
+        // Show Delete Group button only to admin
+        if (currentUserId == group.adminId) {
+            binding.btnDeleteGroup.visibility = View.VISIBLE
+            binding.btnDeleteGroup.setOnClickListener {
+                AlertDialog.Builder(requireContext())
+                    .setTitle("Delete Group")
+                    .setMessage("Are you sure you want to delete \"${group.name}\"? This will also delete all tasks in this group.")
+                    .setPositiveButton("Delete") { _, _ ->
+                        repo.deleteTasksForGroup(groupId)
+                        repo.deleteGroup(groupId)
+                        Toast.makeText(requireContext(), "Group deleted", Toast.LENGTH_SHORT).show()
+                        findNavController().navigate(R.id.homeFragment)
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
         }
     }
 

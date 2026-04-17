@@ -63,6 +63,22 @@
         <action
             android:id="@+id/action_tasks_to_addTask"
             app:destination="@id/addTaskFragment" />
+        <action
+            android:id="@+id/action_tasks_to_editTask"
+            app:destination="@id/editTaskFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/editTaskFragment"
+        android:name="com.example.home_chores_automation_app.home.EditTaskFragment"
+        android:label="Edit Task"
+        tools:layout="@layout/fragment_edit_task">
+        <argument
+            android:name="taskId"
+            app:argType="string" />
+        <argument
+            android:name="groupId"
+            app:argType="string" />
     </fragment>
 
     <fragment

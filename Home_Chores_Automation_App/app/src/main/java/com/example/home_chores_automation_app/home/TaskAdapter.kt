@@ -12,7 +12,9 @@ class TaskAdapter(
     private val memberNames: Map<String, String>,
     private val currentUserId: String,
     private val adminId: String,
-    private val onCheckedChange: (Task, Boolean) -> Unit
+    private val onCheckedChange: (Task, Boolean) -> Unit,
+    private val onEdit: (Task) -> Unit,
+    private val onDelete: (Task) -> Unit
 ) : RecyclerView.Adapter<TaskAdapter.ViewHolder>() {
 
     inner class ViewHolder(val binding: ItemTaskBinding) : RecyclerView.ViewHolder(binding.root)
@@ -37,6 +39,15 @@ class TaskAdapter(
         val canToggle = currentUserId == adminId || currentUserId == task.assignedTo
         holder.binding.cbDone.isEnabled = canToggle
         holder.binding.cbDone.alpha = if (canToggle) 1f else 0.4f
+
+        // Show edit/delete only to admin
+        val isAdmin = currentUserId == adminId
+        holder.binding.layoutAdminActions.visibility =
+            if (isAdmin) android.view.View.VISIBLE else android.view.View.GONE
+        if (isAdmin) {
+            holder.binding.btnEditTask.setOnClickListener { onEdit(task) }
+            holder.binding.btnDeleteTask.setOnClickListener { onDelete(task) }
+        }
 
         if (task.isCompleted) {
             holder.binding.tvTaskTitle.paintFlags =
