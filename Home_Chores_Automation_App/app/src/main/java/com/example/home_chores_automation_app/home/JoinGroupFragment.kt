@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import com.example.home_chores_automation_app.data.model.AppNotification
 import com.example.home_chores_automation_app.data.prefs.SessionManager
 import com.example.home_chores_automation_app.data.repository.AppRepository
 import com.example.home_chores_automation_app.databinding.FragmentJoinGroupBinding
@@ -68,6 +69,19 @@ class JoinGroupFragment : Fragment() {
 
         group.memberIds.add(userId)
         repo.updateGroup(group)
+
+        // Notify the group admin
+        val joinerName = repo.findUserById(userId)?.name ?: "Someone"
+        repo.addNotification(
+            AppNotification(
+                id = java.util.UUID.randomUUID().toString(),
+                userId = group.adminId,
+                title = "New Member Joined",
+                message = "$joinerName joined your group \"${group.name}\"",
+                isRead = false,
+                createdAt = System.currentTimeMillis()
+            )
+        )
 
         Toast.makeText(requireContext(), "Joined \"${group.name}\" successfully!", Toast.LENGTH_SHORT).show()
         findNavController().popBackStack()

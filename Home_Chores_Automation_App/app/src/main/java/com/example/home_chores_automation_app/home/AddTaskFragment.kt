@@ -8,6 +8,7 @@ import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import com.example.home_chores_automation_app.data.model.AppNotification
 import com.example.home_chores_automation_app.data.model.Task
 import com.example.home_chores_automation_app.data.model.User
 import com.example.home_chores_automation_app.data.prefs.SessionManager
@@ -91,6 +92,22 @@ class AddTaskFragment : Fragment() {
         )
 
         repo.createTask(task)
+
+        // Notify the assigned user (if not the creator)
+        val creatorId = session.getCurrentUserId() ?: return
+        if (assignedUserId != creatorId) {
+            val creatorName = repo.findUserById(creatorId)?.name ?: "Someone"
+            repo.addNotification(
+                AppNotification(
+                    id = UUID.randomUUID().toString(),
+                    userId = assignedUserId,
+                    title = "New Task Assigned",
+                    message = "$creatorName assigned you \"$title\"",
+                    isRead = false,
+                    createdAt = System.currentTimeMillis()
+                )
+            )
+        }
 
         Toast.makeText(requireContext(), "Task \"$title\" added!", Toast.LENGTH_SHORT).show()
         findNavController().popBackStack()

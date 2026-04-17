@@ -51,6 +51,10 @@ class HomeFragment : Fragment() {
             findNavController().navigate(R.id.action_home_to_profile)
         }
 
+        binding.btnNotifications.setOnClickListener {
+            findNavController().navigate(R.id.action_home_to_notifications)
+        }
+
         binding.fab.setOnClickListener {
             findNavController().navigate(R.id.action_home_to_createGroup)
         }

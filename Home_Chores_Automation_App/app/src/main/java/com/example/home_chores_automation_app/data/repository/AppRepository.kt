@@ -2,6 +2,7 @@ package com.example.home_chores_automation_app.data.repository
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.example.home_chores_automation_app.data.model.AppNotification
 import com.example.home_chores_automation_app.data.model.Group
 import com.example.home_chores_automation_app.data.model.Task
 import com.example.home_chores_automation_app.data.model.User
@@ -115,4 +116,34 @@ class AppRepository private constructor(context: Context) {
         val idx = list.indexOfFirst { it.id == task.id }
         if (idx >= 0) { list[idx] = task; saveTasks(list) }
     }
+
+    // ── NOTIFICATIONS ────────────────────────────────────────────────────────
+
+    private val notifListType = object : TypeToken<MutableList<AppNotification>>() {}.type
+
+    private fun loadNotifications(): MutableList<AppNotification> {
+        val json = getString("notifications") ?: return mutableListOf()
+        return gson.fromJson(json, notifListType)
+    }
+
+    private fun saveNotifications(list: MutableList<AppNotification>) =
+        putString("notifications", gson.toJson(list))
+
+    fun addNotification(notification: AppNotification) {
+        val list = loadNotifications()
+        list.add(0, notification)
+        saveNotifications(list)
+    }
+
+    fun getNotificationsForUser(userId: String): List<AppNotification> =
+        loadNotifications().filter { it.userId == userId }
+
+    fun markAllRead(userId: String) {
+        val list = loadNotifications()
+        val updated = list.map { if (it.userId == userId) it.copy(isRead = true) else it }.toMutableList()
+        saveNotifications(updated)
+    }
+
+    fun getUnreadCount(userId: String): Int =
+        loadNotifications().count { it.userId == userId && !it.isRead }
 }
