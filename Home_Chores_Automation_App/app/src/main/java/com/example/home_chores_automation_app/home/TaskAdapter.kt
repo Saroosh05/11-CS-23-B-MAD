@@ -1,11 +1,13 @@
 package com.example.home_chores_automation_app.home
 
+import android.graphics.Color
 import android.graphics.Paint
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.example.home_chores_automation_app.data.model.Task
 import com.example.home_chores_automation_app.databinding.ItemTaskBinding
+import com.google.android.material.card.MaterialCardView
 
 class TaskAdapter(
     private val tasks: MutableList<Task>,
@@ -52,9 +54,15 @@ class TaskAdapter(
         if (task.isCompleted) {
             holder.binding.tvTaskTitle.paintFlags =
                 holder.binding.tvTaskTitle.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
+            (holder.itemView as? MaterialCardView)?.setCardBackgroundColor(
+                Color.parseColor("#E8F5E9")
+            )
         } else {
             holder.binding.tvTaskTitle.paintFlags =
                 holder.binding.tvTaskTitle.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
+            (holder.itemView as? MaterialCardView)?.setCardBackgroundColor(
+                Color.parseColor("#FFFFFF")
+            )
         }
 
         holder.binding.cbDone.setOnCheckedChangeListener { _, isChecked ->

@@ -13,6 +13,10 @@ import com.example.home_chores_automation_app.auth.AuthActivity
 import com.example.home_chores_automation_app.data.prefs.SessionManager
 import com.example.home_chores_automation_app.data.repository.AppRepository
 import com.example.home_chores_automation_app.databinding.FragmentHomeBinding
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 class HomeFragment : Fragment() {
 
@@ -35,9 +39,6 @@ class HomeFragment : Fragment() {
         val repo = AppRepository.getInstance(requireContext())
         val userId = session.getCurrentUserId() ?: return
 
-        val user = repo.findUserById(userId)
-        binding.tvUserName.text = "Hello, ${user?.name ?: "User"}!"
-
         binding.rvGroups.layoutManager = LinearLayoutManager(requireContext())
 
         binding.btnLogout.setOnClickListener {
@@ -59,15 +60,33 @@ class HomeFragment : Fragment() {
             findNavController().navigate(R.id.action_home_to_notifications)
         }
 
-        binding.fab.setOnClickListener {
+        binding.cardNewGroup.setOnClickListener {
             findNavController().navigate(R.id.action_home_to_createGroup)
         }
 
-        binding.fabJoin.setOnClickListener {
+        binding.cardJoinGroup.setOnClickListener {
             findNavController().navigate(R.id.action_home_to_joinGroup)
         }
 
-        loadGroups(repo, userId)
+        binding.cardSchedule.setOnClickListener {
+            findNavController().navigate(R.id.action_home_to_calendar)
+        }
+
+        binding.cardNotifications.setOnClickListener {
+            findNavController().navigate(R.id.action_home_to_notifications)
+        }
+
+        binding.cardStatPending.setOnClickListener {
+            val bundle = Bundle().apply { putString("filter", "pending") }
+            findNavController().navigate(R.id.action_home_to_myTasks, bundle)
+        }
+
+        binding.cardStatDone.setOnClickListener {
+            val bundle = Bundle().apply { putString("filter", "done") }
+            findNavController().navigate(R.id.action_home_to_myTasks, bundle)
+        }
+
+        refreshDashboard(repo, userId)
     }
 
     override fun onResume() {
@@ -75,13 +94,35 @@ class HomeFragment : Fragment() {
         val session = SessionManager(requireContext())
         val repo = AppRepository.getInstance(requireContext())
         val userId = session.getCurrentUserId() ?: return
-        loadGroups(repo, userId)
-        updateNotificationBadge(repo, userId)
+        refreshDashboard(repo, userId)
     }
 
-    private fun loadGroups(repo: AppRepository, userId: String) {
-        val groups = repo.getGroupsForUser(userId)
+    private fun refreshDashboard(repo: AppRepository, userId: String) {
+        // Time-based greeting
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        binding.tvGreeting.text = when {
+            hour < 12 -> "Good morning,"
+            hour < 18 -> "Good afternoon,"
+            else      -> "Good evening,"
+        }
+        val user = repo.findUserById(userId)
+        binding.tvUserName.text = "${user?.name ?: "User"}!"
 
+        // Today's date
+        binding.tvDate.text = SimpleDateFormat("EEEE, MMM d, yyyy", Locale.getDefault()).format(Date())
+
+        // Groups
+        val groups = repo.getGroupsForUser(userId)
+        binding.tvStatGroups.text = groups.size.toString()
+        val groupWord = if (groups.size == 1) "group" else "groups"
+        binding.tvGroupCount.text = "${groups.size} $groupWord"
+
+        // Task stats (tasks assigned to this user)
+        val myTasks = groups.flatMap { repo.getTasksForGroup(it.id) }.filter { it.assignedTo == userId }
+        binding.tvStatPending.text = myTasks.count { !it.isCompleted }.toString()
+        binding.tvStatDone.text = myTasks.count { it.isCompleted }.toString()
+
+        // Groups list
         if (groups.isEmpty()) {
             binding.rvGroups.visibility = View.GONE
             binding.layoutEmpty.visibility = View.VISIBLE
@@ -93,13 +134,12 @@ class HomeFragment : Fragment() {
                 findNavController().navigate(R.id.action_home_to_groupDetail, bundle)
             }
         }
-    }
 
-    private fun updateNotificationBadge(repo: AppRepository, userId: String) {
-        val count = repo.getUnreadCount(userId)
-        if (count > 0) {
+        // Notification badge
+        val unreadCount = repo.getUnreadCount(userId)
+        if (unreadCount > 0) {
             binding.tvBadge.visibility = View.VISIBLE
-            binding.tvBadge.text = if (count > 9) "9+" else count.toString()
+            binding.tvBadge.text = if (unreadCount > 9) "9+" else unreadCount.toString()
         } else {
             binding.tvBadge.visibility = View.GONE
         }

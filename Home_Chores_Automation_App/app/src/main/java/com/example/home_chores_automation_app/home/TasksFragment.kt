@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -96,8 +97,15 @@ class TasksFragment : Fragment() {
                     findNavController().navigate(R.id.action_tasks_to_editTask, bundle)
                 },
                 onDelete = { task ->
-                    repo.deleteTask(task.id)
-                    loadTasks()
+                    AlertDialog.Builder(requireContext())
+                        .setTitle("Delete Task")
+                        .setMessage("Delete \"${task.title}\"?")
+                        .setPositiveButton("Delete") { _, _ ->
+                            repo.deleteTask(task.id)
+                            loadTasks()
+                        }
+                        .setNegativeButton("Cancel", null)
+                        .show()
                 }
             )
         }
