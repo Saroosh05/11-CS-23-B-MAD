@@ -72,6 +72,7 @@ class HomeFragment : Fragment() {
         val repo = AppRepository.getInstance(requireContext())
         val userId = session.getCurrentUserId() ?: return
         loadGroups(repo, userId)
+        updateNotificationBadge(repo, userId)
     }
 
     private fun loadGroups(repo: AppRepository, userId: String) {
@@ -87,6 +88,16 @@ class HomeFragment : Fragment() {
                 val bundle = android.os.Bundle().apply { putString("groupId", group.id) }
                 findNavController().navigate(R.id.action_home_to_groupDetail, bundle)
             }
+        }
+    }
+
+    private fun updateNotificationBadge(repo: AppRepository, userId: String) {
+        val count = repo.getUnreadCount(userId)
+        if (count > 0) {
+            binding.tvBadge.visibility = View.VISIBLE
+            binding.tvBadge.text = if (count > 9) "9+" else count.toString()
+        } else {
+            binding.tvBadge.visibility = View.GONE
         }
     }
 

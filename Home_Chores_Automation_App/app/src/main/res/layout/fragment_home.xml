@@ -33,16 +33,37 @@
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
-            <ImageButton
-                android:id="@+id/btnNotifications"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:src="@drawable/ic_bell"
-                android:background="@drawable/bg_icon_circle_white"
-                android:contentDescription="Notifications"
-                android:tint="@color/white"
-                android:padding="6dp"
-                android:layout_marginEnd="8dp" />
+            <!-- Notification bell with badge -->
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp">
+
+                <ImageButton
+                    android:id="@+id/btnNotifications"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:src="@drawable/ic_bell"
+                    android:background="@drawable/bg_icon_circle_white"
+                    android:contentDescription="Notifications"
+                    android:tint="@color/white"
+                    android:padding="6dp" />
+
+                <TextView
+                    android:id="@+id/tvBadge"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="top|end"
+                    android:layout_marginTop="-2dp"
+                    android:layout_marginEnd="-2dp"
+                    android:gravity="center"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/white"
+                    android:background="@drawable/bg_badge_red"
+                    android:visibility="gone" />
+
+            </FrameLayout>
 
             <ImageButton
                 android:id="@+id/btnProfile"
