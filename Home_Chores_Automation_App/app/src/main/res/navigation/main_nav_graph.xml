@@ -41,6 +41,32 @@
         <argument
             android:name="groupId"
             app:argType="string" />
+        <action
+            android:id="@+id/action_groupDetail_to_tasks"
+            app:destination="@id/tasksFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/tasksFragment"
+        android:name="com.example.home_chores_automation_app.home.TasksFragment"
+        android:label="Tasks"
+        tools:layout="@layout/fragment_tasks">
+        <argument
+            android:name="groupId"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_tasks_to_addTask"
+            app:destination="@id/addTaskFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/addTaskFragment"
+        android:name="com.example.home_chores_automation_app.home.AddTaskFragment"
+        android:label="Add Task"
+        tools:layout="@layout/fragment_add_task">
+        <argument
+            android:name="groupId"
+            app:argType="string" />
     </fragment>
 
 </navigation>

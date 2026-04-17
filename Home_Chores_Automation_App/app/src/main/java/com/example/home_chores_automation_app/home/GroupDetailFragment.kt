@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.home_chores_automation_app.R
 import com.example.home_chores_automation_app.data.repository.AppRepository
 import com.example.home_chores_automation_app.databinding.FragmentGroupDetailBinding
 
@@ -56,6 +57,11 @@ class GroupDetailFragment : Fragment() {
 
         binding.rvMembers.layoutManager = LinearLayoutManager(requireContext())
         binding.rvMembers.adapter = MemberAdapter(members, group.adminId)
+
+        binding.btnViewTasks.setOnClickListener {
+            val bundle = Bundle().apply { putString("groupId", groupId) }
+            findNavController().navigate(R.id.action_groupDetail_to_tasks, bundle)
+        }
     }
 
     override fun onDestroyView() {

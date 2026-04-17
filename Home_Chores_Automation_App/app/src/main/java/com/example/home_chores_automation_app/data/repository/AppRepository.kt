@@ -3,6 +3,7 @@ package com.example.home_chores_automation_app.data.repository
 import android.content.Context
 import android.content.SharedPreferences
 import com.example.home_chores_automation_app.data.model.Group
+import com.example.home_chores_automation_app.data.model.Task
 import com.example.home_chores_automation_app.data.model.User
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -87,5 +88,31 @@ class AppRepository private constructor(context: Context) {
         val list = loadGroups()
         val idx = list.indexOfFirst { it.id == group.id }
         if (idx >= 0) { list[idx] = group; saveGroups(list) }
+    }
+
+    // ── TASKS ────────────────────────────────────────────────────────────────
+
+    private val taskListType = object : TypeToken<MutableList<Task>>() {}.type
+
+    private fun loadTasks(): MutableList<Task> {
+        val json = getString("tasks") ?: return mutableListOf()
+        return gson.fromJson(json, taskListType)
+    }
+
+    private fun saveTasks(list: MutableList<Task>) = putString("tasks", gson.toJson(list))
+
+    fun createTask(task: Task) {
+        val list = loadTasks()
+        list.add(task)
+        saveTasks(list)
+    }
+
+    fun getTasksForGroup(groupId: String): List<Task> =
+        loadTasks().filter { it.groupId == groupId }
+
+    fun updateTask(task: Task) {
+        val list = loadTasks()
+        val idx = list.indexOfFirst { it.id == task.id }
+        if (idx >= 0) { list[idx] = task; saveTasks(list) }
     }
 }

@@ -181,6 +181,17 @@
 
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- View Tasks button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnViewTasks"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="16dp"
+                android:text="View Tasks"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:cornerRadius="12dp" />
+
         </LinearLayout>
     </ScrollView>
 
