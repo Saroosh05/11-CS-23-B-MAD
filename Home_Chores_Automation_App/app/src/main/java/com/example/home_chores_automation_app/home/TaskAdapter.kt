@@ -10,6 +10,8 @@ import com.example.home_chores_automation_app.databinding.ItemTaskBinding
 class TaskAdapter(
     private val tasks: MutableList<Task>,
     private val memberNames: Map<String, String>,
+    private val currentUserId: String,
+    private val adminId: String,
     private val onCheckedChange: (Task, Boolean) -> Unit
 ) : RecyclerView.Adapter<TaskAdapter.ViewHolder>() {
 
@@ -31,6 +33,11 @@ class TaskAdapter(
         holder.binding.cbDone.setOnCheckedChangeListener(null)
         holder.binding.cbDone.isChecked = task.isCompleted
 
+        // Only admin or assigned user can mark complete
+        val canToggle = currentUserId == adminId || currentUserId == task.assignedTo
+        holder.binding.cbDone.isEnabled = canToggle
+        holder.binding.cbDone.alpha = if (canToggle) 1f else 0.4f
+
         if (task.isCompleted) {
             holder.binding.tvTaskTitle.paintFlags =
                 holder.binding.tvTaskTitle.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
@@ -40,7 +47,10 @@ class TaskAdapter(
         }
 
         holder.binding.cbDone.setOnCheckedChangeListener { _, isChecked ->
-            onCheckedChange(task, isChecked)
+            // Update the list item in-place so rebind shows correct strikethrough
+            tasks[position] = tasks[position].copy(isCompleted = isChecked)
+            notifyItemChanged(position)
+            onCheckedChange(tasks[position], isChecked)
         }
     }
 

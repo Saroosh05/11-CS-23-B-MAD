@@ -9,6 +9,7 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.home_chores_automation_app.R
 import com.example.home_chores_automation_app.data.model.Task
+import com.example.home_chores_automation_app.data.prefs.SessionManager
 import com.example.home_chores_automation_app.data.repository.AppRepository
 import com.example.home_chores_automation_app.databinding.FragmentTasksBinding
 
@@ -19,6 +20,7 @@ class TasksFragment : Fragment() {
 
     private lateinit var repo: AppRepository
     private lateinit var groupId: String
+    private lateinit var currentUserId: String
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -34,6 +36,7 @@ class TasksFragment : Fragment() {
 
         repo = AppRepository.getInstance(requireContext())
         groupId = arguments?.getString("groupId") ?: return
+        currentUserId = SessionManager(requireContext()).getCurrentUserId() ?: return
 
         val group = repo.findGroupById(groupId) ?: return
         binding.tvGroupName.text = group.name
@@ -65,7 +68,7 @@ class TasksFragment : Fragment() {
             .mapNotNull { repo.findUserById(it) }
             .associate { it.id to it.name }
 
-        binding.tvTaskCount.text = "${tasks.size} task(s)"
+        updateCountLabel(tasks)
 
         if (tasks.isEmpty()) {
             binding.rvTasks.visibility = View.GONE
@@ -73,11 +76,16 @@ class TasksFragment : Fragment() {
         } else {
             binding.rvTasks.visibility = View.VISIBLE
             binding.layoutEmpty.visibility = View.GONE
-            binding.rvTasks.adapter = TaskAdapter(tasks, memberNames) { task, isChecked ->
-                val updated = task.copy(isCompleted = isChecked)
-                repo.updateTask(updated)
+            binding.rvTasks.adapter = TaskAdapter(tasks, memberNames, currentUserId, group.adminId) { task, isChecked ->
+                repo.updateTask(task)
+                updateCountLabel(tasks)
             }
         }
+    }
+
+    private fun updateCountLabel(tasks: List<Task>) {
+        val completed = tasks.count { it.isCompleted }
+        binding.tvTaskCount.text = "$completed of ${tasks.size} completed"
     }
 
     override fun onDestroyView() {
