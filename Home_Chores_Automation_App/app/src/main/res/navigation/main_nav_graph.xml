@@ -25,6 +25,9 @@
         <action
             android:id="@+id/action_home_to_notifications"
             app:destination="@id/notificationsFragment" />
+        <action
+            android:id="@+id/action_home_to_calendar"
+            app:destination="@id/calendarFragment" />
     </fragment>
 
     <fragment
@@ -102,5 +105,11 @@
         android:name="com.example.home_chores_automation_app.home.NotificationsFragment"
         android:label="Notifications"
         tools:layout="@layout/fragment_notifications" />
+
+    <fragment
+        android:id="@+id/calendarFragment"
+        android:name="com.example.home_chores_automation_app.home.CalendarFragment"
+        android:label="Task Schedule"
+        tools:layout="@layout/fragment_calendar" />
 
 </navigation>

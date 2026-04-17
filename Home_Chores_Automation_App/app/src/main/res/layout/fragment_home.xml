@@ -66,6 +66,17 @@
             </FrameLayout>
 
             <ImageButton
+                android:id="@+id/btnCalendar"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@drawable/ic_calendar"
+                android:background="@drawable/bg_icon_circle_white"
+                android:contentDescription="Task Schedule"
+                android:tint="@color/white"
+                android:padding="6dp"
+                android:layout_marginEnd="8dp" />
+
+            <ImageButton
                 android:id="@+id/btnProfile"
                 android:layout_width="36dp"
                 android:layout_height="36dp"

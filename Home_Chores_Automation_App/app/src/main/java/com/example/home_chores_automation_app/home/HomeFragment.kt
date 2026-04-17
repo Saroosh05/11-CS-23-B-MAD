@@ -51,6 +51,10 @@ class HomeFragment : Fragment() {
             findNavController().navigate(R.id.action_home_to_profile)
         }
 
+        binding.btnCalendar.setOnClickListener {
+            findNavController().navigate(R.id.action_home_to_calendar)
+        }
+
         binding.btnNotifications.setOnClickListener {
             findNavController().navigate(R.id.action_home_to_notifications)
         }
