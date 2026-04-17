@@ -19,6 +19,9 @@
         <action
             android:id="@+id/action_home_to_groupDetail"
             app:destination="@id/groupDetailFragment" />
+        <action
+            android:id="@+id/action_home_to_profile"
+            app:destination="@id/profileFragment" />
     </fragment>
 
     <fragment
@@ -68,5 +71,11 @@
             android:name="groupId"
             app:argType="string" />
     </fragment>
+
+    <fragment
+        android:id="@+id/profileFragment"
+        android:name="com.example.home_chores_automation_app.home.ProfileFragment"
+        android:label="Profile"
+        tools:layout="@layout/fragment_profile" />
 
 </navigation>

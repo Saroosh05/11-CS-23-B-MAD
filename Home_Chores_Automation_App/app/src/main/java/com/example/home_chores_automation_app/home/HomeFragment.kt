@@ -47,6 +47,10 @@ class HomeFragment : Fragment() {
             })
         }
 
+        binding.btnProfile.setOnClickListener {
+            findNavController().navigate(R.id.action_home_to_profile)
+        }
+
         binding.fab.setOnClickListener {
             findNavController().navigate(R.id.action_home_to_createGroup)
         }
