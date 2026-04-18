@@ -59,6 +59,34 @@ class AppRepository private constructor(context: Context) {
         if (idx >= 0) { list[idx] = user; saveUsers(list) }
     }
 
+    fun updateUserProfile(user: User) {
+        updateUser(user)
+    }
+
+    fun updateUserPassword(userId: String, newPassword: String) {
+        val list = loadUsers()
+        val idx = list.indexOfFirst { it.id == userId }
+        if (idx >= 0) {
+            val updatedUser = list[idx].copy(password = newPassword)
+            list[idx] = updatedUser
+            saveUsers(list)
+        }
+    }
+
+    fun updateProfilePicture(userId: String, base64Image: String?) {
+        val list = loadUsers()
+        val idx = list.indexOfFirst { it.id == userId }
+        if (idx >= 0) {
+            val updatedUser = list[idx].copy(profilePictureBase64 = base64Image)
+            list[idx] = updatedUser
+            saveUsers(list)
+        }
+    }
+
+    fun checkEmailExists(email: String, excludeUserId: String): Boolean {
+        return loadUsers().any { it.email.equals(email, ignoreCase = true) && it.id != excludeUserId }
+    }
+
     // ── GROUPS ───────────────────────────────────────────────────────────────
 
     private val groupListType = object : TypeToken<MutableList<Group>>() {}.type

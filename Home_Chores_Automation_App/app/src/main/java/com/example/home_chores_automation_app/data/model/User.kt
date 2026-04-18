@@ -8,5 +8,6 @@ data class User(
     val email: String = "",
     val password: String = "",
     val avatarColorHex: String = "#FF6B35",
+    val profilePictureBase64: String? = null,
     val createdAt: Long = System.currentTimeMillis()
 )
