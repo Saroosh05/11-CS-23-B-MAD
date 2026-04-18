@@ -33,6 +33,9 @@ class TaskAdapter(
         val assignedName = memberNames[task.assignedTo] ?: "Unassigned"
         holder.binding.tvAssignedTo.text = "Assigned to: $assignedName"
 
+        holder.binding.tvRecurringBadge.visibility =
+            if (task.isRecurring) android.view.View.VISIBLE else android.view.View.GONE
+
         // Prevent listener triggering during bind
         holder.binding.cbDone.setOnCheckedChangeListener(null)
         holder.binding.cbDone.isChecked = task.isCompleted

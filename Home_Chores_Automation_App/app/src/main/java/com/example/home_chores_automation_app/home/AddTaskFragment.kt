@@ -88,7 +88,8 @@ class AddTaskFragment : Fragment() {
             assignedTo = assignedUserId,
             createdBy = session.getCurrentUserId() ?: return,
             isCompleted = false,
-            createdAt = System.currentTimeMillis()
+            createdAt = System.currentTimeMillis(),
+            isRecurring = binding.switchRecurring.isChecked
         )
 
         repo.createTask(task)

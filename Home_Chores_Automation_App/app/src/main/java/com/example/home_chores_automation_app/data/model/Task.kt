@@ -8,5 +8,6 @@ data class Task(
     val assignedTo: String,
     val createdBy: String,
     val isCompleted: Boolean,
-    val createdAt: Long
+    val createdAt: Long,
+    val isRecurring: Boolean = false
 )

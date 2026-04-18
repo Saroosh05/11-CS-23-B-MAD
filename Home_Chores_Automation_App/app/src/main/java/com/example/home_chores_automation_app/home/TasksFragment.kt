@@ -9,10 +9,12 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.home_chores_automation_app.R
+import com.example.home_chores_automation_app.data.model.AppNotification
 import com.example.home_chores_automation_app.data.model.Task
 import com.example.home_chores_automation_app.data.prefs.SessionManager
 import com.example.home_chores_automation_app.data.repository.AppRepository
 import com.example.home_chores_automation_app.databinding.FragmentTasksBinding
+import java.util.UUID
 
 class TasksFragment : Fragment() {
 
@@ -85,9 +87,12 @@ class TasksFragment : Fragment() {
             binding.rvTasks.visibility = View.VISIBLE
             binding.layoutEmpty.visibility = View.GONE
             binding.rvTasks.adapter = TaskAdapter(tasks, memberNames, currentUserId, group.adminId,
-                onCheckedChange = { task, _ ->
+                onCheckedChange = { task, isChecked ->
                     repo.updateTask(task)
                     updateCountLabel(tasks)
+                    if (isChecked && task.isRecurring) {
+                        regenerateRecurringTask(task, group.adminId)
+                    }
                 },
                 onEdit = { task ->
                     val bundle = Bundle().apply {
@@ -109,6 +114,43 @@ class TasksFragment : Fragment() {
                 }
             )
         }
+    }
+
+    private fun regenerateRecurringTask(completedTask: Task, adminId: String) {
+        val newTask = completedTask.copy(
+            id = UUID.randomUUID().toString(),
+            isCompleted = false,
+            createdAt = System.currentTimeMillis()
+        )
+        repo.createTask(newTask)
+
+        val assigneeName = repo.findUserById(newTask.assignedTo)?.name ?: "Someone"
+
+        if (newTask.assignedTo != adminId) {
+            repo.addNotification(
+                AppNotification(
+                    id = UUID.randomUUID().toString(),
+                    userId = newTask.assignedTo,
+                    title = "New Recurring Task Assigned",
+                    message = "You have been assigned \"${newTask.title}\" (Recurring Task)",
+                    isRead = false,
+                    createdAt = System.currentTimeMillis()
+                )
+            )
+        }
+
+        repo.addNotification(
+            AppNotification(
+                id = UUID.randomUUID().toString(),
+                userId = adminId,
+                title = "Recurring Task Generated",
+                message = "Task \"${newTask.title}\" has been automatically recreated and assigned to $assigneeName.",
+                isRead = false,
+                createdAt = System.currentTimeMillis()
+            )
+        )
+
+        loadTasks()
     }
 
     private fun updateCountLabel(tasks: List<Task>) {

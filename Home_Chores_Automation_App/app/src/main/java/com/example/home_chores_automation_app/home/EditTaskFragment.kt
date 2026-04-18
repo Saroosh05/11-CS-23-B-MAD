@@ -74,20 +74,36 @@ class EditTaskFragment : Fragment() {
                 return@setOnClickListener
             }
 
+            val oldAssigneeId = task.assignedTo
             val newAssignee = members[selectedIndex]
             val updatedTask = task.copy(assignedTo = newAssignee.id)
             repo.updateTask(updatedTask)
 
-            // Notify the newly assigned user if different from admin
             val adminId = session.getCurrentUserId() ?: return@setOnClickListener
+            val adminName = repo.findUserById(adminId)?.name ?: "Admin"
+
+            // Notify the newly assigned user if different from admin
             if (newAssignee.id != adminId) {
-                val adminName = repo.findUserById(adminId)?.name ?: "Admin"
                 repo.addNotification(
                     AppNotification(
                         id = UUID.randomUUID().toString(),
                         userId = newAssignee.id,
                         title = "Task Reassigned",
                         message = "$adminName reassigned \"${task.title}\" to you",
+                        isRead = false,
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            }
+
+            // Notify the previous assignee if assignee changed and they are not the admin
+            if (oldAssigneeId != newAssignee.id && oldAssigneeId != adminId) {
+                repo.addNotification(
+                    AppNotification(
+                        id = UUID.randomUUID().toString(),
+                        userId = oldAssigneeId,
+                        title = "Task Reassigned",
+                        message = "$adminName reassigned \"${task.title}\" to someone else",
                         isRead = false,
                         createdAt = System.currentTimeMillis()
                     )
