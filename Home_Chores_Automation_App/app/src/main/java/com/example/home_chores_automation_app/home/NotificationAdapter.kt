@@ -1,5 +1,6 @@
 package com.example.home_chores_automation_app.home
 
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -28,6 +29,18 @@ class NotificationAdapter(
 
         val sdf = SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault())
         holder.binding.tvTime.text = sdf.format(Date(notif.createdAt))
+
+        val isOverdue = notif.title == "Task Overdue" || notif.title == "Overdue Alert"
+        val overdueColor = Color.parseColor("#D32F2F")
+
+        holder.binding.tvTitle.setTextColor(
+            if (isOverdue) overdueColor else Color.parseColor("#212121")
+        )
+        holder.binding.viewDot.setBackgroundTintList(
+            android.content.res.ColorStateList.valueOf(
+                if (isOverdue) overdueColor else Color.parseColor("#6200EE")
+            )
+        )
 
         // Unread dot visibility
         holder.binding.viewDot.visibility = if (notif.isRead) View.INVISIBLE else View.VISIBLE
