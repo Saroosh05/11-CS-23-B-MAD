@@ -44,10 +44,14 @@ class TaskAdapter(
         val isOverdue = task.dueDate > 0L && task.dueDate < now && !task.isCompleted
         if (task.dueDate > 0L) {
             holder.binding.tvDueDate.visibility = View.VISIBLE
-            holder.binding.tvDueDate.text = "Due: ${dateFormatter.format(Date(task.dueDate))}"
-            holder.binding.tvDueDate.setTextColor(
-                if (isOverdue) Color.parseColor("#D32F2F") else Color.parseColor("#757575")
-            )
+            if (isOverdue) {
+                val diffMs = now - task.dueDate
+                holder.binding.tvDueDate.text = "Overdue by ${formatDuration(diffMs)} · ${dateFormatter.format(Date(task.dueDate))}"
+                holder.binding.tvDueDate.setTextColor(Color.parseColor("#D32F2F"))
+            } else {
+                holder.binding.tvDueDate.text = "Due: ${dateFormatter.format(Date(task.dueDate))}"
+                holder.binding.tvDueDate.setTextColor(Color.parseColor("#757575"))
+            }
         } else {
             holder.binding.tvDueDate.visibility = View.GONE
         }
@@ -95,11 +99,45 @@ class TaskAdapter(
         }
 
         holder.binding.cbDone.setOnCheckedChangeListener { _, isChecked ->
-            tasks[position] = tasks[position].copy(isCompleted = isChecked)
-            notifyItemChanged(position)
-            onCheckedChange(tasks[position], isChecked)
+            val pos = holder.bindingAdapterPosition
+            if (pos == RecyclerView.NO_POSITION) return@setOnCheckedChangeListener
+            tasks[pos] = tasks[pos].copy(isCompleted = isChecked)
+            val updatedTask = tasks[pos]
+
+            // Update visuals directly on the ViewHolder — no notifyItemChanged call,
+            // which eliminates any chance of RecyclerView throwing IllegalStateException
+            // while it is still processing the touch event that fired this listener.
+            if (isChecked) {
+                holder.binding.tvTaskTitle.paintFlags =
+                    holder.binding.tvTaskTitle.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
+            } else {
+                holder.binding.tvTaskTitle.paintFlags =
+                    holder.binding.tvTaskTitle.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
+            }
+            val nowMs = System.currentTimeMillis()
+            val overdueNow = updatedTask.dueDate > 0L && updatedTask.dueDate < nowMs && !isChecked
+            val cardColor = when {
+                isChecked  -> Color.parseColor("#E8F5E9")
+                overdueNow -> Color.parseColor("#FFEBEE")
+                else       -> Color.parseColor("#FFFFFF")
+            }
+            (holder.itemView as? MaterialCardView)?.setCardBackgroundColor(cardColor)
+
+            onCheckedChange(updatedTask, isChecked)
         }
     }
 
     override fun getItemCount() = tasks.size
+
+    private fun formatDuration(ms: Long): String {
+        val minutes = ms / 60_000
+        val hours = minutes / 60
+        val days = hours / 24
+        return when {
+            days >= 1 -> "${days}d"
+            hours >= 1 -> "${hours}h"
+            minutes >= 1 -> "${minutes}m"
+            else -> "moments"
+        }
+    }
 }

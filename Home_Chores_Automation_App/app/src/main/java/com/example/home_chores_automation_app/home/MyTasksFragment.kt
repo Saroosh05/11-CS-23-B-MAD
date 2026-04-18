@@ -1,6 +1,5 @@
 package com.example.home_chores_automation_app.home
 
-import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -8,14 +7,21 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.home_chores_automation_app.data.model.AppNotification
+import com.example.home_chores_automation_app.data.model.Task
 import com.example.home_chores_automation_app.data.prefs.SessionManager
 import com.example.home_chores_automation_app.data.repository.AppRepository
 import com.example.home_chores_automation_app.databinding.FragmentMyTasksBinding
+import java.util.UUID
 
 class MyTasksFragment : Fragment() {
 
     private var _binding: FragmentMyTasksBinding? = null
     private val binding get() = _binding!!
+
+    private lateinit var repo: AppRepository
+    private lateinit var userId: String
+    private lateinit var filter: String
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -29,45 +35,44 @@ class MyTasksFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // "pending" or "done"
-        val filter = arguments?.getString("filter") ?: "pending"
-
-        val repo = AppRepository.getInstance(requireContext())
-        val userId = SessionManager(requireContext()).getCurrentUserId() ?: return
+        filter = arguments?.getString("filter") ?: "pending"
+        repo = AppRepository.getInstance(requireContext())
+        userId = SessionManager(requireContext()).getCurrentUserId() ?: return
 
         binding.rvMyTasks.layoutManager = LinearLayoutManager(requireContext())
-
         binding.btnBack.setOnClickListener { findNavController().popBackStack() }
 
-        // Configure header colour + title based on filter
-        if (filter == "done") {
-            binding.tvTitle.text = "Completed Tasks"
-        } else {
-            binding.tvTitle.text = "Pending Tasks"
-        }
+        binding.tvTitle.text = if (filter == "done") "Completed Tasks" else "Pending Tasks"
 
-        loadTasks(repo, userId, filter)
+        loadTasks()
     }
 
-    private fun loadTasks(repo: AppRepository, userId: String, filter: String) {
+    private fun loadTasks() {
         val groups = repo.getGroupsForUser(userId)
 
-        // Collect tasks assigned to this user, with group name
-        val myTasks = groups.flatMap { group ->
-            repo.getTasksForGroup(group.id)
-                .filter { it.assignedTo == userId }
-                .map { task ->
-                    val assignedName = repo.findUserById(task.assignedTo)?.name ?: "Unassigned"
-                    Triple(task, group.name, assignedName)
-                }
+        // Collect tasks assigned to this user across all groups
+        val allMyTasks = groups.flatMap { group ->
+            repo.getTasksForGroup(group.id).filter { it.assignedTo == userId }
         }
 
-        // Apply filter
-        val filtered = if (filter == "done") {
-            myTasks.filter { it.first.isCompleted }
-        } else {
-            myTasks.filter { !it.first.isCompleted }
+        // Send one-time overdue notifications for pending tasks
+        if (filter != "done") {
+            checkAndNotifyOverdue(allMyTasks.filter { !it.isCompleted }, groups)
         }
+
+        // Build member name map across all user's groups
+        val memberNames = groups
+            .flatMap { it.memberIds }
+            .distinct()
+            .mapNotNull { repo.findUserById(it) }
+            .associate { it.id to it.name }
+
+        // Apply pending / done filter
+        val filtered = if (filter == "done") {
+            allMyTasks.filter { it.isCompleted }
+        } else {
+            allMyTasks.filter { !it.isCompleted }
+        }.toMutableList()
 
         binding.tvSubtitle.text = "${filtered.size} task${if (filtered.size == 1) "" else "s"}"
 
@@ -87,17 +92,61 @@ class MyTasksFragment : Fragment() {
         binding.rvMyTasks.visibility = View.VISIBLE
         binding.layoutEmpty.visibility = View.GONE
 
-        // Build CalendarItem list (no date headers — flat list)
-        val items = filtered.map { (task, groupName, assignedName) ->
-            CalendarItem.TaskRow(
-                taskTitle = task.title,
-                assignedName = assignedName,
-                groupName = groupName,
-                isCompleted = task.isCompleted
-            )
-        }
+        // adminId = "" → edit/delete buttons stay hidden (isAdmin = false),
+        // but currentUserId == task.assignedTo keeps the checkbox enabled
+        binding.rvMyTasks.adapter = TaskAdapter(
+            tasks = filtered,
+            memberNames = memberNames,
+            currentUserId = userId,
+            adminId = "",
+            onCheckedChange = { task, _ ->
+                repo.updateTask(task)
+                // post defers the adapter swap to the next frame so it never
+                // conflicts with RecyclerView's ongoing touch-event processing
+                view?.post { if (_binding != null) loadTasks() }
+            },
+            onEdit = {},
+            onDelete = {}
+        )
+    }
 
-        binding.rvMyTasks.adapter = CalendarAdapter(items)
+    private fun checkAndNotifyOverdue(
+        tasks: List<Task>,
+        groups: List<com.example.home_chores_automation_app.data.model.Group>
+    ) {
+        val now = System.currentTimeMillis()
+        val groupMap = groups.associateBy { it.id }
+        tasks.forEach { task ->
+            val isOverdue = task.dueDate > 0L && task.dueDate < now
+            // use != true so Gson-null (old tasks without the field) is treated as false
+            if (isOverdue && task.overdueNotified != true) {
+                repo.markOverdueNotified(task.id)
+                val adminId = groupMap[task.groupId]?.adminId ?: ""
+                val assigneeName = repo.findUserById(task.assignedTo)?.name ?: "Someone"
+                repo.addNotification(
+                    AppNotification(
+                        id = UUID.randomUUID().toString(),
+                        userId = task.assignedTo,
+                        title = "Task Overdue",
+                        message = "Task overdue: \"${task.title}\" is now overdue",
+                        isRead = false,
+                        createdAt = now
+                    )
+                )
+                if (adminId.isNotEmpty() && task.assignedTo != adminId) {
+                    repo.addNotification(
+                        AppNotification(
+                            id = UUID.randomUUID().toString(),
+                            userId = adminId,
+                            title = "Overdue Alert",
+                            message = "Overdue alert: \"${task.title}\" assigned to $assigneeName is overdue",
+                            isRead = false,
+                            createdAt = now
+                        )
+                    )
+                }
+            }
+        }
     }
 
     override fun onDestroyView() {

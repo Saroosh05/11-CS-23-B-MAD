@@ -72,11 +72,20 @@ class TasksFragment : Fragment() {
 
     private fun loadTasks() {
         val group = repo.findGroupById(groupId) ?: return
-        val tasks = repo.getTasksForGroup(groupId).toMutableList()
+        val raw = repo.getTasksForGroup(groupId)
 
         val memberNames = group.memberIds
             .mapNotNull { repo.findUserById(it) }
             .associate { it.id to it.name }
+
+        // Send one-time overdue notifications before sorting
+        checkAndNotifyOverdue(raw, group.adminId, memberNames)
+
+        // Overdue tasks float to the top, then sort by due date ascending
+        val now = System.currentTimeMillis()
+        val tasks = raw.sortedWith(compareByDescending<Task> {
+            it.dueDate > 0L && it.dueDate < now && !it.isCompleted
+        }.thenBy { if (it.dueDate > 0L) it.dueDate else Long.MAX_VALUE }).toMutableList()
 
         updateCountLabel(tasks)
 
@@ -91,7 +100,9 @@ class TasksFragment : Fragment() {
                     repo.updateTask(task)
                     updateCountLabel(tasks)
                     if (isChecked && (task.recurrence ?: "none") != "none") {
-                        regenerateRecurringTask(task, group.adminId)
+                        // post defers the adapter swap to the next frame so it never
+                        // conflicts with RecyclerView's ongoing touch-event processing
+                        view?.post { if (_binding != null) regenerateRecurringTask(task, group.adminId) }
                     }
                 },
                 onEdit = { task ->
@@ -113,6 +124,40 @@ class TasksFragment : Fragment() {
                         .show()
                 }
             )
+        }
+    }
+
+    private fun checkAndNotifyOverdue(tasks: List<Task>, adminId: String, memberNames: Map<String, String>) {
+        val now = System.currentTimeMillis()
+        tasks.forEach { task ->
+            val isOverdue = task.dueDate > 0L && task.dueDate < now && !task.isCompleted
+            // use != true so Gson-null (old tasks without the field) is treated as false
+            if (isOverdue && task.overdueNotified != true) {
+                repo.markOverdueNotified(task.id)
+                val assigneeName = memberNames[task.assignedTo] ?: "Someone"
+                repo.addNotification(
+                    AppNotification(
+                        id = UUID.randomUUID().toString(),
+                        userId = task.assignedTo,
+                        title = "Task Overdue",
+                        message = "Task overdue: \"${task.title}\" is now overdue",
+                        isRead = false,
+                        createdAt = now
+                    )
+                )
+                if (task.assignedTo != adminId) {
+                    repo.addNotification(
+                        AppNotification(
+                            id = UUID.randomUUID().toString(),
+                            userId = adminId,
+                            title = "Overdue Alert",
+                            message = "Overdue alert: \"${task.title}\" assigned to $assigneeName is overdue",
+                            isRead = false,
+                            createdAt = now
+                        )
+                    )
+                }
+            }
         }
     }
 

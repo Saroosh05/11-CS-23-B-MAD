@@ -153,6 +153,12 @@ class AppRepository private constructor(context: Context) {
         if (idx >= 0) { list[idx] = task; saveTasks(list) }
     }
 
+    fun markOverdueNotified(taskId: String) {
+        val list = loadTasks()
+        val idx = list.indexOfFirst { it.id == taskId }
+        if (idx >= 0) { list[idx] = list[idx].copy(overdueNotified = true); saveTasks(list) }
+    }
+
     fun deleteTask(taskId: String) {
         val list = loadTasks()
         list.removeAll { it.id == taskId }
