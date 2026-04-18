@@ -8,6 +8,8 @@ import com.example.home_chores_automation_app.data.model.Task
 import com.example.home_chores_automation_app.data.model.User
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import java.util.Calendar
+import java.util.UUID
 
 class AppRepository private constructor(context: Context) {
 
@@ -161,6 +163,29 @@ class AppRepository private constructor(context: Context) {
         val list = loadTasks()
         list.removeAll { it.groupId == groupId }
         saveTasks(list)
+    }
+
+    fun getNextDeadline(task: Task): Long {
+        if (task.dueDate == 0L) return 0L
+        val cal = Calendar.getInstance()
+        cal.timeInMillis = task.dueDate
+        when (task.recurrence ?: "none") {
+            "daily" -> cal.add(Calendar.DAY_OF_MONTH, 1)
+            "weekly" -> cal.add(Calendar.WEEK_OF_YEAR, 1)
+            "monthly" -> cal.add(Calendar.MONTH, 1)
+            else -> return 0L
+        }
+        return cal.timeInMillis
+    }
+
+    fun createRecurringTask(completedTask: Task): Task {
+        val nextDue = getNextDeadline(completedTask)
+        return completedTask.copy(
+            id = UUID.randomUUID().toString(),
+            isCompleted = false,
+            createdAt = System.currentTimeMillis(),
+            dueDate = nextDue
+        )
     }
 
     // ── NOTIFICATIONS ────────────────────────────────────────────────────────

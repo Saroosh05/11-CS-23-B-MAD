@@ -3,11 +3,15 @@ package com.example.home_chores_automation_app.home
 import android.graphics.Color
 import android.graphics.Paint
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.example.home_chores_automation_app.data.model.Task
 import com.example.home_chores_automation_app.databinding.ItemTaskBinding
 import com.google.android.material.card.MaterialCardView
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class TaskAdapter(
     private val tasks: MutableList<Task>,
@@ -18,6 +22,8 @@ class TaskAdapter(
     private val onEdit: (Task) -> Unit,
     private val onDelete: (Task) -> Unit
 ) : RecyclerView.Adapter<TaskAdapter.ViewHolder>() {
+
+    private val dateFormatter = SimpleDateFormat("dd MMM yyyy, h:mm a", Locale.getDefault())
 
     inner class ViewHolder(val binding: ItemTaskBinding) : RecyclerView.ViewHolder(binding.root)
 
@@ -33,8 +39,28 @@ class TaskAdapter(
         val assignedName = memberNames[task.assignedTo] ?: "Unassigned"
         holder.binding.tvAssignedTo.text = "Assigned to: $assignedName"
 
-        holder.binding.tvRecurringBadge.visibility =
-            if (task.isRecurring) android.view.View.VISIBLE else android.view.View.GONE
+        // Due date
+        val now = System.currentTimeMillis()
+        val isOverdue = task.dueDate > 0L && task.dueDate < now && !task.isCompleted
+        if (task.dueDate > 0L) {
+            holder.binding.tvDueDate.visibility = View.VISIBLE
+            holder.binding.tvDueDate.text = "Due: ${dateFormatter.format(Date(task.dueDate))}"
+            holder.binding.tvDueDate.setTextColor(
+                if (isOverdue) Color.parseColor("#D32F2F") else Color.parseColor("#757575")
+            )
+        } else {
+            holder.binding.tvDueDate.visibility = View.GONE
+        }
+
+        // Recurring badge (guard against null from Gson deserializing old stored tasks)
+        val recurrence = task.recurrence ?: "none"
+        if (recurrence != "none") {
+            holder.binding.tvRecurringBadge.visibility = View.VISIBLE
+            val label = recurrence.replaceFirstChar { it.uppercase() }
+            holder.binding.tvRecurringBadge.text = "↻ $label"
+        } else {
+            holder.binding.tvRecurringBadge.visibility = View.GONE
+        }
 
         // Prevent listener triggering during bind
         holder.binding.cbDone.setOnCheckedChangeListener(null)
@@ -47,29 +73,28 @@ class TaskAdapter(
 
         // Show edit/delete only to admin
         val isAdmin = currentUserId == adminId
-        holder.binding.layoutAdminActions.visibility =
-            if (isAdmin) android.view.View.VISIBLE else android.view.View.GONE
+        holder.binding.layoutAdminActions.visibility = if (isAdmin) View.VISIBLE else View.GONE
         if (isAdmin) {
             holder.binding.btnEditTask.setOnClickListener { onEdit(task) }
             holder.binding.btnDeleteTask.setOnClickListener { onDelete(task) }
         }
 
+        val cardColor = when {
+            task.isCompleted -> Color.parseColor("#E8F5E9")
+            isOverdue -> Color.parseColor("#FFEBEE")
+            else -> Color.parseColor("#FFFFFF")
+        }
+        (holder.itemView as? MaterialCardView)?.setCardBackgroundColor(cardColor)
+
         if (task.isCompleted) {
             holder.binding.tvTaskTitle.paintFlags =
                 holder.binding.tvTaskTitle.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
-            (holder.itemView as? MaterialCardView)?.setCardBackgroundColor(
-                Color.parseColor("#E8F5E9")
-            )
         } else {
             holder.binding.tvTaskTitle.paintFlags =
                 holder.binding.tvTaskTitle.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
-            (holder.itemView as? MaterialCardView)?.setCardBackgroundColor(
-                Color.parseColor("#FFFFFF")
-            )
         }
 
         holder.binding.cbDone.setOnCheckedChangeListener { _, isChecked ->
-            // Update the list item in-place so rebind shows correct strikethrough
             tasks[position] = tasks[position].copy(isCompleted = isChecked)
             notifyItemChanged(position)
             onCheckedChange(tasks[position], isChecked)

@@ -9,5 +9,6 @@ data class Task(
     val createdBy: String,
     val isCompleted: Boolean,
     val createdAt: Long,
-    val isRecurring: Boolean = false
+    val dueDate: Long = 0L,
+    val recurrence: String = "none"  // "none", "daily", "weekly", "monthly"
 )

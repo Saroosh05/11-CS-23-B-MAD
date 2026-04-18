@@ -90,7 +90,7 @@ class TasksFragment : Fragment() {
                 onCheckedChange = { task, isChecked ->
                     repo.updateTask(task)
                     updateCountLabel(tasks)
-                    if (isChecked && task.isRecurring) {
+                    if (isChecked && (task.recurrence ?: "none") != "none") {
                         regenerateRecurringTask(task, group.adminId)
                     }
                 },
@@ -117,11 +117,7 @@ class TasksFragment : Fragment() {
     }
 
     private fun regenerateRecurringTask(completedTask: Task, adminId: String) {
-        val newTask = completedTask.copy(
-            id = UUID.randomUUID().toString(),
-            isCompleted = false,
-            createdAt = System.currentTimeMillis()
-        )
+        val newTask = repo.createRecurringTask(completedTask)
         repo.createTask(newTask)
 
         val assigneeName = repo.findUserById(newTask.assignedTo)?.name ?: "Someone"
