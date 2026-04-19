@@ -1,23 +1,51 @@
 <resources>
     <style name="Base.Theme.Home_Chores_Automation_App" parent="Theme.Material3.Light.NoActionBar">
+        <!-- Primary (teal) -->
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryDark">@color/primary_dark</item>
         <item name="colorPrimaryContainer">@color/primary_container</item>
         <item name="colorOnPrimary">@color/on_primary</item>
+        <item name="colorOnPrimaryContainer">@color/on_surface</item>
+        <!-- Secondary (blue-grey) -->
         <item name="colorSecondary">@color/secondary</item>
         <item name="colorSecondaryContainer">@color/secondary_container</item>
         <item name="colorOnSecondary">@color/on_primary</item>
+        <item name="colorOnSecondaryContainer">@color/on_surface</item>
+        <!-- Tertiary — override M3 default purple with our secondary blue-grey -->
+        <item name="colorTertiary">@color/secondary</item>
+        <item name="colorOnTertiary">@color/on_primary</item>
+        <item name="colorTertiaryContainer">@color/secondary_container</item>
+        <item name="colorOnTertiaryContainer">@color/on_surface</item>
+        <!-- Outline colours — override M3 default purple-tinted neutral -->
+        <item name="colorOutline">#9E9E9E</item>
+        <item name="colorOutlineVariant">#E0E0E0</item>
+        <!-- Surface / background -->
         <item name="android:colorBackground">@color/background</item>
         <item name="colorSurface">@color/surface</item>
         <item name="colorOnSurface">@color/on_surface</item>
+        <item name="colorSurfaceVariant">@color/secondary_container</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+        <!-- Error -->
         <item name="colorError">@color/error</item>
         <item name="colorErrorContainer">@color/error_container</item>
         <item name="colorOnError">@color/on_primary</item>
+        <!-- System bars -->
         <item name="android:statusBarColor">@color/primary</item>
         <item name="android:navigationBarColor">@color/surface</item>
     </style>
 
-    <style name="Theme.Home_Chores_Automation_App" parent="Base.Theme.Home_Chores_Automation_App" />
+    <style name="Theme.Home_Chores_Automation_App" parent="Base.Theme.Home_Chores_Automation_App">
+        <!-- Active pill in BottomNavigationView uses colorSecondaryContainer (light teal #ECEFF1 mapped to primary_container) -->
+        <item name="bottomNavigationStyle">@style/Widget.HomeChores.BottomNavigation</item>
+    </style>
+
+    <style name="Widget.HomeChores.BottomNavigation" parent="Widget.Material3.BottomNavigationView">
+        <item name="itemActiveIndicatorStyle">@style/Widget.HomeChores.BottomNavigation.ActiveIndicator</item>
+    </style>
+
+    <style name="Widget.HomeChores.BottomNavigation.ActiveIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:color">@color/primary_container</item>
+    </style>
 
     <style name="Theme.HomeChores.Splash" parent="Base.Theme.Home_Chores_Automation_App">
         <item name="android:windowBackground">@color/primary</item>

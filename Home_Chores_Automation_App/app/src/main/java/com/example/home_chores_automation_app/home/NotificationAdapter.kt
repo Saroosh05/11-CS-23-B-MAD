@@ -38,7 +38,7 @@ class NotificationAdapter(
         )
         holder.binding.viewDot.setBackgroundTintList(
             android.content.res.ColorStateList.valueOf(
-                if (isOverdue) overdueColor else Color.parseColor("#6200EE")
+                if (isOverdue) overdueColor else Color.parseColor("#00897B")
             )
         )
 
