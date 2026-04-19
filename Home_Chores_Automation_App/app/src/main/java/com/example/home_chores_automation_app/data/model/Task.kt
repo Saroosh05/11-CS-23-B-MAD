@@ -11,5 +11,6 @@ data class Task(
     val createdAt: Long,
     val dueDate: Long = 0L,
     val recurrence: String = "none",  // "none", "daily", "weekly", "monthly"
-    val overdueNotified: Boolean = false
+    val overdueNotified: Boolean = false,
+    val completedAt: Long = 0L
 )

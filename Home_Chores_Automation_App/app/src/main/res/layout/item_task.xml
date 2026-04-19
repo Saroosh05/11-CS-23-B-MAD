@@ -60,6 +60,17 @@
                 android:visibility="gone" />
 
             <TextView
+                android:id="@+id/tvLateCompleted"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⚠ Late completed"
+                android:textSize="11sp"
+                android:textColor="#D32F2F"
+                android:textStyle="bold"
+                android:layout_marginTop="3dp"
+                android:visibility="gone" />
+
+            <TextView
                 android:id="@+id/tvRecurringBadge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

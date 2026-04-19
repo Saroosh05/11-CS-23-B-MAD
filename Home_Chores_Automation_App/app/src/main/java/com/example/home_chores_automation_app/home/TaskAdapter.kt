@@ -56,6 +56,11 @@ class TaskAdapter(
             holder.binding.tvDueDate.visibility = View.GONE
         }
 
+        // Late-completed badge
+        val isLateCompleted = task.isCompleted && task.dueDate > 0L &&
+                task.completedAt > 0L && task.completedAt > task.dueDate
+        holder.binding.tvLateCompleted.visibility = if (isLateCompleted) View.VISIBLE else View.GONE
+
         // Recurring badge (guard against null from Gson deserializing old stored tasks)
         val recurrence = task.recurrence ?: "none"
         if (recurrence != "none") {
@@ -101,7 +106,11 @@ class TaskAdapter(
         holder.binding.cbDone.setOnCheckedChangeListener { _, isChecked ->
             val pos = holder.bindingAdapterPosition
             if (pos == RecyclerView.NO_POSITION) return@setOnCheckedChangeListener
-            tasks[pos] = tasks[pos].copy(isCompleted = isChecked)
+            val now = System.currentTimeMillis()
+            tasks[pos] = tasks[pos].copy(
+                isCompleted = isChecked,
+                completedAt = if (isChecked) now else 0L
+            )
             val updatedTask = tasks[pos]
 
             // Update visuals directly on the ViewHolder — no notifyItemChanged call,
@@ -114,8 +123,7 @@ class TaskAdapter(
                 holder.binding.tvTaskTitle.paintFlags =
                     holder.binding.tvTaskTitle.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
             }
-            val nowMs = System.currentTimeMillis()
-            val overdueNow = updatedTask.dueDate > 0L && updatedTask.dueDate < nowMs && !isChecked
+            val overdueNow = updatedTask.dueDate > 0L && updatedTask.dueDate < now && !isChecked
             val cardColor = when {
                 isChecked  -> Color.parseColor("#E8F5E9")
                 overdueNow -> Color.parseColor("#FFEBEE")
