@@ -7,6 +7,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
+import android.widget.AutoCompleteTextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
@@ -62,28 +63,29 @@ class EditTaskFragment : Fragment() {
         members = group.memberIds.mapNotNull { repo.findUserById(it) }
 
         val memberNames = members.map { it.name }
-        val spinnerAdapter = ArrayAdapter(
+        val memberAdapter = ArrayAdapter(
             requireContext(),
-            android.R.layout.simple_spinner_item,
+            android.R.layout.simple_dropdown_item_1line,
             memberNames
         )
-        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        binding.spinnerAssign.adapter = spinnerAdapter
-
+        (binding.spinnerAssign as AutoCompleteTextView).setAdapter(memberAdapter)
         val currentIndex = members.indexOfFirst { it.id == task.assignedTo }
-        if (currentIndex >= 0) binding.spinnerAssign.setSelection(currentIndex)
+        if (currentIndex >= 0) {
+            (binding.spinnerAssign as AutoCompleteTextView).setText(memberNames[currentIndex], false)
+        } else if (memberNames.isNotEmpty()) {
+            (binding.spinnerAssign as AutoCompleteTextView).setText(memberNames[0], false)
+        }
 
         val recurrenceAdapter = ArrayAdapter(
             requireContext(),
-            android.R.layout.simple_spinner_item,
+            android.R.layout.simple_dropdown_item_1line,
             recurrenceOptions
         )
-        recurrenceAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        binding.spinnerRecurrence.adapter = recurrenceAdapter
+        (binding.spinnerRecurrence as AutoCompleteTextView).setAdapter(recurrenceAdapter)
 
         // Pre-populate recurrence
         val recurrenceIndex = recurrenceValues.indexOf(task.recurrence).takeIf { it >= 0 } ?: 0
-        binding.spinnerRecurrence.setSelection(recurrenceIndex)
+        (binding.spinnerRecurrence as AutoCompleteTextView).setText(recurrenceOptions[recurrenceIndex], false)
 
         // Pre-populate due date
         selectedDueDate = task.dueDate
@@ -99,7 +101,8 @@ class EditTaskFragment : Fragment() {
         }
 
         binding.btnSave.setOnClickListener {
-            val selectedIndex = binding.spinnerAssign.selectedItemPosition
+            val selectedName = (binding.spinnerAssign as AutoCompleteTextView).text.toString()
+            val selectedIndex = members.indexOfFirst { it.name == selectedName }
             if (members.isEmpty() || selectedIndex < 0) {
                 Toast.makeText(requireContext(), "Please select a member", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
@@ -108,7 +111,8 @@ class EditTaskFragment : Fragment() {
             val oldAssigneeId = task.assignedTo
             val newAssignee = members[selectedIndex]
 
-            val recIdx = binding.spinnerRecurrence.selectedItemPosition
+            val recText = (binding.spinnerRecurrence as AutoCompleteTextView).text.toString()
+            val recIdx = recurrenceOptions.indexOf(recText)
             val recurrence = if (recIdx >= 0) recurrenceValues[recIdx] else "none"
 
             val updatedTask = task.copy(

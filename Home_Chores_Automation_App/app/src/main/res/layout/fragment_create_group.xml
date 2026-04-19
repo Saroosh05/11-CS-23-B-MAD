@@ -77,49 +77,55 @@
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="12dp" />
 
-            <!-- Type buttons -->
-            <LinearLayout
+            <!-- Type buttons (scrollable row) -->
+            <HorizontalScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="start">
+                android:scrollbars="none">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnTypeHome"
-                    style="@style/Widget.Material3.Button.OutlinedButton"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Home"
-                    android:layout_marginEnd="8dp"
-                    app:cornerRadius="20dp" />
+                    android:orientation="horizontal"
+                    android:gravity="start">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnTypeOffice"
-                    style="@style/Widget.Material3.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Office"
-                    android:layout_marginEnd="8dp"
-                    app:cornerRadius="20dp" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnTypeHome"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Home"
+                        android:layout_marginEnd="8dp"
+                        app:cornerRadius="20dp" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnTypeHostel"
-                    style="@style/Widget.Material3.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Hostel"
-                    android:layout_marginEnd="8dp"
-                    app:cornerRadius="20dp" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnTypeOffice"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Office"
+                        android:layout_marginEnd="8dp"
+                        app:cornerRadius="20dp" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnTypeOther"
-                    style="@style/Widget.Material3.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Other"
-                    app:cornerRadius="20dp" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnTypeHostel"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Hostel"
+                        android:layout_marginEnd="8dp"
+                        app:cornerRadius="20dp" />
 
-            </LinearLayout>
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnTypeOther"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Other"
+                        app:cornerRadius="20dp" />
+
+                </LinearLayout>
+            </HorizontalScrollView>
 
             <!-- Info card (invite code reminder) -->
             <com.google.android.material.card.MaterialCardView

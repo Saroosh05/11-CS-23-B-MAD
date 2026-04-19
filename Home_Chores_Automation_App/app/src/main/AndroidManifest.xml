@@ -25,11 +25,13 @@
         <activity
             android:name="com.example.home_chores_automation_app.auth.AuthActivity"
             android:exported="false"
+            android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.Home_Chores_Automation_App" />
 
         <activity
             android:name="com.example.home_chores_automation_app.MainActivity"
             android:exported="false"
+            android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.Home_Chores_Automation_App" />
 
     </application>

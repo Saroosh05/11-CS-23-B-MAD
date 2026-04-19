@@ -1,7 +1,9 @@
 package com.example.home_chores_automation_app.home
 
-import android.content.Intent
+import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.os.Bundle
+import android.util.Base64
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -9,10 +11,11 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.home_chores_automation_app.R
-import com.example.home_chores_automation_app.auth.AuthActivity
+import com.example.home_chores_automation_app.data.model.User
 import com.example.home_chores_automation_app.data.prefs.SessionManager
 import com.example.home_chores_automation_app.data.repository.AppRepository
 import com.example.home_chores_automation_app.databinding.FragmentHomeBinding
+import com.google.android.material.bottomnavigation.BottomNavigationView
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -41,39 +44,12 @@ class HomeFragment : Fragment() {
 
         binding.rvGroups.layoutManager = LinearLayoutManager(requireContext())
 
-        binding.btnLogout.setOnClickListener {
-            session.logout()
-            startActivity(Intent(requireContext(), AuthActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            })
-        }
-
-        binding.btnProfile.setOnClickListener {
-            findNavController().navigate(R.id.action_home_to_profile)
-        }
-
-        binding.btnCalendar.setOnClickListener {
-            findNavController().navigate(R.id.action_home_to_calendar)
-        }
-
-        binding.btnNotifications.setOnClickListener {
-            findNavController().navigate(R.id.action_home_to_notifications)
-        }
-
         binding.cardNewGroup.setOnClickListener {
             findNavController().navigate(R.id.action_home_to_createGroup)
         }
 
         binding.cardJoinGroup.setOnClickListener {
             findNavController().navigate(R.id.action_home_to_joinGroup)
-        }
-
-        binding.cardSchedule.setOnClickListener {
-            findNavController().navigate(R.id.action_home_to_calendar)
-        }
-
-        binding.cardNotifications.setOnClickListener {
-            findNavController().navigate(R.id.action_home_to_notifications)
         }
 
         binding.cardStatPending.setOnClickListener {
@@ -111,6 +87,9 @@ class HomeFragment : Fragment() {
         // Today's date
         binding.tvDate.text = SimpleDateFormat("EEEE, MMM d, yyyy", Locale.getDefault()).format(Date())
 
+        // Avatar
+        setupAvatar(user)
+
         // Groups
         val groups = repo.getGroupsForUser(userId)
         binding.tvStatGroups.text = groups.size.toString()
@@ -135,14 +114,38 @@ class HomeFragment : Fragment() {
             }
         }
 
-        // Notification badge
+        // Notification badge on the bottom nav Alerts item
         val unreadCount = repo.getUnreadCount(userId)
+        val navView = requireActivity().findViewById<BottomNavigationView>(R.id.bottomNavView)
         if (unreadCount > 0) {
-            binding.tvBadge.visibility = View.VISIBLE
-            binding.tvBadge.text = if (unreadCount > 9) "9+" else unreadCount.toString()
+            val badge = navView?.getOrCreateBadge(R.id.notificationsFragment)
+            badge?.isVisible = true
+            badge?.number = unreadCount
         } else {
-            binding.tvBadge.visibility = View.GONE
+            navView?.removeBadge(R.id.notificationsFragment)
         }
+    }
+
+    private fun setupAvatar(user: User?) {
+        if (user?.profilePictureBase64 != null) {
+            try {
+                val bytes = Base64.decode(user.profilePictureBase64, Base64.DEFAULT)
+                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                binding.ivHomeAvatar.setImageBitmap(bitmap)
+                binding.ivHomeAvatar.visibility = View.VISIBLE
+                binding.tvAvatarInitial.visibility = View.GONE
+                return
+            } catch (ignore: Exception) { /* fall through to initial */ }
+        }
+        binding.ivHomeAvatar.visibility = View.GONE
+        binding.tvAvatarInitial.visibility = View.VISIBLE
+        binding.tvAvatarInitial.text = user?.name?.firstOrNull()?.uppercaseChar()?.toString() ?: "U"
+        try {
+            binding.tvAvatarInitial.backgroundTintList =
+                android.content.res.ColorStateList.valueOf(
+                    Color.parseColor(user?.avatarColorHex ?: "#00897B")
+                )
+        } catch (ignore: Exception) {}
     }
 
     override fun onDestroyView() {

@@ -36,6 +36,15 @@ class TaskAdapter(
         val task = tasks[position]
         holder.binding.tvTaskTitle.text = task.title
 
+        // Description
+        val desc = task.description.trim()
+        if (desc.isNotEmpty()) {
+            holder.binding.tvDescription.visibility = View.VISIBLE
+            holder.binding.tvDescription.text = desc
+        } else {
+            holder.binding.tvDescription.visibility = View.GONE
+        }
+
         val assignedName = memberNames[task.assignedTo] ?: "Unassigned"
         holder.binding.tvAssignedTo.text = "Assigned to: $assignedName"
 

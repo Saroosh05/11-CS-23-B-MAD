@@ -73,22 +73,24 @@
                 android:textStyle="bold"
                 android:textColor="@color/on_surface" />
 
-            <!-- Assign To label -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Reassign To"
-                android:textSize="14sp"
-                android:textColor="@color/text_secondary"
-                android:layout_marginBottom="8dp" />
-
-            <!-- Spinner for members -->
-            <Spinner
-                android:id="@+id/spinnerAssign"
+            <!-- Reassign To -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilAssign"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@android:drawable/btn_dropdown"
-                android:padding="4dp" />
+                android:layout_marginBottom="4dp"
+                android:hint="Reassign To">
+
+                <AutoCompleteTextView
+                    android:id="@+id/spinnerAssign"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="none"
+                    android:focusable="false"
+                    android:focusableInTouchMode="false" />
+
+            </com.google.android.material.textfield.TextInputLayout>
 
             <!-- Due Date picker -->
             <com.google.android.material.textfield.TextInputLayout
@@ -110,23 +112,24 @@
 
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Recurrence label -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Recurrence"
-                android:textSize="14sp"
-                android:textColor="@color/text_secondary"
-                android:layout_marginTop="20dp"
-                android:layout_marginBottom="8dp" />
-
-            <!-- Recurrence spinner -->
-            <Spinner
-                android:id="@+id/spinnerRecurrence"
+            <!-- Recurrence -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilRecurrence"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@android:drawable/btn_dropdown"
-                android:padding="4dp" />
+                android:layout_marginTop="16dp"
+                android:hint="Recurrence">
+
+                <AutoCompleteTextView
+                    android:id="@+id/spinnerRecurrence"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="none"
+                    android:focusable="false"
+                    android:focusableInTouchMode="false" />
+
+            </com.google.android.material.textfield.TextInputLayout>
 
             <!-- Save button -->
             <com.google.android.material.button.MaterialButton

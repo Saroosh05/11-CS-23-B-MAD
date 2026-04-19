@@ -77,7 +77,7 @@ class GroupDetailFragment : Fragment() {
                         repo.deleteTasksForGroup(groupId)
                         repo.deleteGroup(groupId)
                         Toast.makeText(requireContext(), "Group deleted", Toast.LENGTH_SHORT).show()
-                        findNavController().navigate(R.id.homeFragment)
+                        findNavController().popBackStack(R.id.homeFragment, false)
                     }
                     .setNegativeButton("Cancel", null)
                     .show()
