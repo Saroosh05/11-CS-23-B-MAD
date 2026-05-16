@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "936022597126",
+    "project_id": "home-chores-automation-app",
+    "storage_bucket": "home-chores-automation-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:936022597126:android:96120ef621fe93a2142d87",
+        "android_client_info": {
+          "package_name": "com.example.home_chores_automation_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA20Ef_wO-JFDESMxObx7Md81XR_6JbQKw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
