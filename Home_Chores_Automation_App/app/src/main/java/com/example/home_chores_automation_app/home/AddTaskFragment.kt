@@ -10,13 +10,15 @@ import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.example.home_chores_automation_app.data.model.AppNotification
 import com.example.home_chores_automation_app.data.model.Task
 import com.example.home_chores_automation_app.data.model.User
 import com.example.home_chores_automation_app.data.prefs.SessionManager
-import com.example.home_chores_automation_app.data.repository.AppRepository
+import com.example.home_chores_automation_app.data.repository.FirebaseRepository
 import com.example.home_chores_automation_app.databinding.FragmentAddTaskBinding
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -27,7 +29,7 @@ class AddTaskFragment : Fragment() {
     private var _binding: FragmentAddTaskBinding? = null
     private val binding get() = _binding!!
 
-    private lateinit var repo: AppRepository
+    private val repo    = FirebaseRepository.getInstance()
     private lateinit var session: SessionManager
     private lateinit var groupId: String
     private var members: List<User> = emptyList()
@@ -36,7 +38,7 @@ class AddTaskFragment : Fragment() {
     private val dateFormatter = SimpleDateFormat("dd MMM yyyy, h:mm a", Locale.getDefault())
 
     private val recurrenceOptions = listOf("None", "Daily", "Weekly", "Monthly")
-    private val recurrenceValues = listOf("none", "daily", "weekly", "monthly")
+    private val recurrenceValues  = listOf("none", "daily", "weekly", "monthly")
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -50,82 +52,60 @@ class AddTaskFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        repo = AppRepository.getInstance(requireContext())
         session = SessionManager(requireContext())
         groupId = arguments?.getString("groupId") ?: return
 
-        val group = repo.findGroupById(groupId) ?: return
-        members = group.memberIds.mapNotNull { repo.findUserById(it) }
-
-        val memberNames = members.map { it.name }
-        val memberAdapter = ArrayAdapter(
-            requireContext(),
-            android.R.layout.simple_dropdown_item_1line,
-            memberNames
-        )
-        (binding.spinnerAssign as AutoCompleteTextView).setAdapter(memberAdapter)
-        if (memberNames.isNotEmpty()) {
-            (binding.spinnerAssign as AutoCompleteTextView).setText(memberNames[0], false)
-        }
-
         val recurrenceAdapter = ArrayAdapter(
-            requireContext(),
-            android.R.layout.simple_dropdown_item_1line,
-            recurrenceOptions
+            requireContext(), android.R.layout.simple_dropdown_item_1line, recurrenceOptions
         )
         (binding.spinnerRecurrence as AutoCompleteTextView).setAdapter(recurrenceAdapter)
         (binding.spinnerRecurrence as AutoCompleteTextView).setText(recurrenceOptions[0], false)
 
         binding.etDueDate.setOnClickListener { showDatePicker() }
         binding.tilDueDate.setOnClickListener { showDatePicker() }
+        binding.btnBack.setOnClickListener { findNavController().popBackStack() }
 
-        binding.btnBack.setOnClickListener {
-            findNavController().popBackStack()
+        viewLifecycleOwner.lifecycleScope.launch {
+            val group = repo.getGroupById(groupId) ?: return@launch
+            members = group.memberIds.mapNotNull { repo.getUserById(it) }
+            val memberNames = members.map { it.name }
+            val memberAdapter = ArrayAdapter(
+                requireContext(), android.R.layout.simple_dropdown_item_1line, memberNames
+            )
+            (binding.spinnerAssign as AutoCompleteTextView).setAdapter(memberAdapter)
+            if (memberNames.isNotEmpty()) {
+                (binding.spinnerAssign as AutoCompleteTextView).setText(memberNames[0], false)
+            }
         }
 
-        binding.btnAddTask.setOnClickListener {
-            addTask()
-        }
+        binding.btnAddTask.setOnClickListener { addTask() }
     }
 
     private fun showDatePicker() {
         val cal = Calendar.getInstance()
         if (selectedDueDate > 0L) cal.timeInMillis = selectedDueDate
-
-        DatePickerDialog(
-            requireContext(),
-            { _, year, month, day ->
-                showTimePicker(year, month, day)
-            },
-            cal.get(Calendar.YEAR),
-            cal.get(Calendar.MONTH),
-            cal.get(Calendar.DAY_OF_MONTH)
-        ).show()
+        DatePickerDialog(requireContext(), { _, year, month, day ->
+            showTimePicker(year, month, day)
+        }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
     }
 
     private fun showTimePicker(year: Int, month: Int, day: Int) {
         val cal = Calendar.getInstance()
-        TimePickerDialog(
-            requireContext(),
-            { _, hour, minute ->
-                val picked = Calendar.getInstance()
-                picked.set(year, month, day, hour, minute, 0)
-                picked.set(Calendar.MILLISECOND, 0)
-                if (picked.timeInMillis <= System.currentTimeMillis()) {
-                    Toast.makeText(requireContext(), "Due date must be in the future", Toast.LENGTH_SHORT).show()
-                    return@TimePickerDialog
-                }
-                selectedDueDate = picked.timeInMillis
-                binding.etDueDate.setText(dateFormatter.format(picked.time))
-            },
-            cal.get(Calendar.HOUR_OF_DAY),
-            cal.get(Calendar.MINUTE),
-            false
-        ).show()
+        TimePickerDialog(requireContext(), { _, hour, minute ->
+            val picked = Calendar.getInstance()
+            picked.set(year, month, day, hour, minute, 0)
+            picked.set(Calendar.MILLISECOND, 0)
+            if (picked.timeInMillis <= System.currentTimeMillis()) {
+                Toast.makeText(requireContext(), "Due date must be in the future", Toast.LENGTH_SHORT).show()
+                return@TimePickerDialog
+            }
+            selectedDueDate = picked.timeInMillis
+            binding.etDueDate.setText(dateFormatter.format(picked.time))
+        }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show()
     }
 
     private fun addTask() {
-        val title = binding.etTaskTitle.text.toString().trim()
+        val title       = binding.etTaskTitle.text.toString().trim()
         val description = binding.etDescription.text.toString().trim()
 
         if (title.isEmpty()) {
@@ -134,7 +114,7 @@ class AddTaskFragment : Fragment() {
         }
         binding.tilTaskTitle.error = null
 
-        val selectedName = (binding.spinnerAssign as AutoCompleteTextView).text.toString()
+        val selectedName  = (binding.spinnerAssign as AutoCompleteTextView).text.toString()
         val selectedIndex = members.indexOfFirst { it.name == selectedName }
         val assignedUserId = if (members.isNotEmpty() && selectedIndex >= 0) {
             members[selectedIndex].id
@@ -142,42 +122,44 @@ class AddTaskFragment : Fragment() {
             session.getCurrentUserId() ?: return
         }
 
-        val recurrenceText = (binding.spinnerRecurrence as AutoCompleteTextView).text.toString()
-        val recurrenceIndex = recurrenceOptions.indexOf(recurrenceText)
-        val recurrence = if (recurrenceIndex >= 0) recurrenceValues[recurrenceIndex] else "none"
+        val recText      = (binding.spinnerRecurrence as AutoCompleteTextView).text.toString()
+        val recIdx       = recurrenceOptions.indexOf(recText)
+        val recurrence   = if (recIdx >= 0) recurrenceValues[recIdx] else "none"
+        val creatorId    = session.getCurrentUserId() ?: return
 
         val task = Task(
-            id = UUID.randomUUID().toString(),
-            groupId = groupId,
-            title = title,
+            id          = UUID.randomUUID().toString(),
+            groupId     = groupId,
+            title       = title,
             description = description,
-            assignedTo = assignedUserId,
-            createdBy = session.getCurrentUserId() ?: return,
+            assignedTo  = assignedUserId,
+            createdBy   = creatorId,
             isCompleted = false,
-            createdAt = System.currentTimeMillis(),
-            dueDate = selectedDueDate,
-            recurrence = recurrence
+            createdAt   = System.currentTimeMillis(),
+            dueDate     = selectedDueDate,
+            recurrence  = recurrence
         )
 
-        repo.createTask(task)
-
-        val creatorId = session.getCurrentUserId() ?: return
-        if (assignedUserId != creatorId) {
-            val creatorName = repo.findUserById(creatorId)?.name ?: "Someone"
-            repo.addNotification(
-                AppNotification(
-                    id = UUID.randomUUID().toString(),
-                    userId = assignedUserId,
-                    title = "New Task Assigned",
-                    message = "$creatorName assigned you \"$title\"",
-                    isRead = false,
-                    createdAt = System.currentTimeMillis()
-                )
-            )
+        binding.btnAddTask.isEnabled = false
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                repo.createTask(task)
+                if (assignedUserId != creatorId) {
+                    val creatorName = repo.getUserById(creatorId)?.name ?: "Someone"
+                    repo.addNotification(AppNotification(
+                        id = UUID.randomUUID().toString(), userId = assignedUserId,
+                        title = "New Task Assigned",
+                        message = "$creatorName assigned you \"$title\"",
+                        isRead = false, createdAt = System.currentTimeMillis()
+                    ))
+                }
+                Toast.makeText(requireContext(), "Task \"$title\" added!", Toast.LENGTH_SHORT).show()
+                findNavController().popBackStack()
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Failed to add task", Toast.LENGTH_SHORT).show()
+                binding.btnAddTask.isEnabled = true
+            }
         }
-
-        Toast.makeText(requireContext(), "Task \"$title\" added!", Toast.LENGTH_SHORT).show()
-        findNavController().popBackStack()
     }
 
     override fun onDestroyView() {

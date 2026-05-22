@@ -1,28 +1,31 @@
 package com.example.home_chores_automation_app.home
 
-import android.app.Activity
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
-import android.util.Base64
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import com.bumptech.glide.Glide
 import com.example.home_chores_automation_app.R
 import com.example.home_chores_automation_app.auth.AuthActivity
+import com.example.home_chores_automation_app.data.model.User
 import com.example.home_chores_automation_app.data.prefs.SessionManager
-import com.example.home_chores_automation_app.data.repository.AppRepository
+import com.example.home_chores_automation_app.data.repository.FirebaseRepository
 import com.example.home_chores_automation_app.databinding.FragmentProfileBinding
-import java.io.ByteArrayOutputStream
+import com.google.firebase.storage.FirebaseStorage
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 
 class ProfileFragment : Fragment() {
 
@@ -30,11 +33,11 @@ class ProfileFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var session: SessionManager
-    private lateinit var repo: AppRepository
-    private lateinit var currentUser: com.example.home_chores_automation_app.data.model.User
+    private val repo = FirebaseRepository.getInstance()
+    private var currentUser: User? = null
 
     private val galleryLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        uri?.let { handleImageSelection(it) }
+        uri?.let { uploadProfilePicture(it) }
     }
 
     override fun onCreateView(
@@ -50,129 +53,96 @@ class ProfileFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         session = SessionManager(requireContext())
-        repo = AppRepository.getInstance(requireContext())
         val userId = session.getCurrentUserId() ?: return
-        currentUser = repo.findUserById(userId) ?: return
 
-        setupAvatar()
-        setupInfo()
-        setupStats()
-        setupButtons()
-    }
-
-    private fun setupAvatar() {
-        binding.tvAvatarInitial.text = currentUser.name.first().uppercaseChar().toString()
-
-        if (currentUser.profilePictureBase64 != null) {
-            try {
-                val decodedBytes = Base64.decode(currentUser.profilePictureBase64, Base64.DEFAULT)
-                val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
-                binding.ivProfilePicture.setImageBitmap(bitmap)
-                binding.ivProfilePicture.visibility = View.VISIBLE
-                binding.tvAvatarInitial.visibility = View.GONE
-            } catch (e: Exception) {
-                // Fallback to initial
-                binding.ivProfilePicture.visibility = View.GONE
-                binding.tvAvatarInitial.visibility = View.VISIBLE
-            }
-        } else {
-            binding.ivProfilePicture.visibility = View.GONE
-            binding.tvAvatarInitial.visibility = View.VISIBLE
-        }
-    }
-
-    private fun setupInfo() {
-        binding.tvName.text = currentUser.name
-        binding.tvEmail.text = currentUser.email
-
-        val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-        binding.tvMemberSince.text = dateFormat.format(Date(currentUser.createdAt))
-    }
-
-    private fun setupStats() {
-        val groups = repo.getGroupsForUser(currentUser.id)
-        binding.tvGroupCount.text = groups.size.toString()
-
-        val allTasks = groups.flatMap { repo.getTasksForGroup(it.id) }
-        val assignedTasks = allTasks.filter { it.assignedTo == currentUser.id }
-        binding.tvTaskCount.text = assignedTasks.size.toString()
-        binding.tvCompletedCount.text = assignedTasks.count { it.isCompleted }.toString()
-    }
-
-    private fun setupButtons() {
-        binding.btnBack.setOnClickListener {
-            findNavController().popBackStack()
-        }
-
-        binding.btnEditProfile.setOnClickListener {
-            findNavController().navigate(R.id.action_profile_to_editProfile)
-        }
-
-        binding.btnChangePassword.setOnClickListener {
-            findNavController().navigate(R.id.action_profile_to_changePassword)
-        }
-
-        binding.btnChangePicture.setOnClickListener {
-            galleryLauncher.launch("image/*")
-        }
-
+        binding.btnBack.setOnClickListener { findNavController().popBackStack() }
+        binding.btnEditProfile.setOnClickListener { findNavController().navigate(R.id.action_profile_to_editProfile) }
+        binding.btnChangePassword.setOnClickListener { findNavController().navigate(R.id.action_profile_to_changePassword) }
+        binding.btnChangePicture.setOnClickListener { galleryLauncher.launch("image/*") }
         binding.btnLogout.setOnClickListener {
             session.logout()
             startActivity(Intent(requireContext(), AuthActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             })
         }
+
+        loadProfile(userId)
     }
 
-    private fun handleImageSelection(uri: Uri) {
-        try {
-            val inputStream = requireContext().contentResolver.openInputStream(uri)
-            val originalBitmap = BitmapFactory.decodeStream(inputStream)
-            inputStream?.close()
+    private fun loadProfile(userId: String) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            var user = repo.getUserById(userId)
+            // Firestore doc missing (e.g. Auth account exists but registration failed mid-way)
+            if (user == null) {
+                val firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                if (firebaseUser != null) {
+                    user = com.example.home_chores_automation_app.data.model.User(
+                        id        = firebaseUser.uid,
+                        name      = firebaseUser.displayName ?: "User",
+                        email     = firebaseUser.email ?: "",
+                        createdAt = System.currentTimeMillis()
+                    )
+                    repo.createUser(user)
+                } else {
+                    return@launch
+                }
+            }
+            if (_binding == null) return@launch
+            currentUser = user
 
-            val compressedBitmap = compressBitmap(originalBitmap, 200 * 1024) // 200KB
-            val base64String = bitmapToBase64(compressedBitmap)
+            setupAvatar(user)
+            binding.tvName.text = user.name
+            binding.tvEmail.text = user.email
+            val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+            binding.tvMemberSince.text = dateFormat.format(Date(user.createdAt))
 
-            repo.updateProfilePicture(currentUser.id, base64String)
+            val groups = repo.getGroupsForUser(userId)
+            binding.tvGroupCount.text = groups.size.toString()
 
-            // Refresh user and avatar
-            currentUser = repo.findUserById(currentUser.id) ?: currentUser
-            setupAvatar()
-
-            Toast.makeText(requireContext(), "Profile picture updated", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            Toast.makeText(requireContext(), "Failed to update profile picture", Toast.LENGTH_SHORT).show()
+            val allTasks = groups.flatMap { repo.getTasksForGroup(it.id) }
+            val assignedTasks = allTasks.filter { it.assignedTo == userId }
+            binding.tvTaskCount.text      = assignedTasks.size.toString()
+            binding.tvCompletedCount.text = assignedTasks.count { it.isCompleted }.toString()
         }
     }
 
-    private fun compressBitmap(bitmap: Bitmap, maxSizeBytes: Int): Bitmap {
-        var quality = 100
-        var compressedBitmap = bitmap
-
-        do {
-            val outputStream = ByteArrayOutputStream()
-            compressedBitmap.compress(Bitmap.CompressFormat.JPEG, quality, outputStream)
-            val byteArray = outputStream.toByteArray()
-            if (byteArray.size <= maxSizeBytes) break
-            quality -= 5
-            if (quality < 10) {
-                // Resize if quality too low
-                val scale = Math.sqrt((maxSizeBytes.toDouble() / byteArray.size.toDouble()))
-                val newWidth = (bitmap.width * scale).toInt()
-                val newHeight = (bitmap.height * scale).toInt()
-                compressedBitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
-                quality = 100
-            }
-        } while (quality > 10)
-
-        return compressedBitmap
+    private fun setupAvatar(user: User) {
+        if (user.profilePictureUrl != null) {
+            binding.ivProfilePicture.visibility = View.VISIBLE
+            binding.tvAvatarInitial.visibility  = View.GONE
+            Glide.with(this).load(user.profilePictureUrl).circleCrop().into(binding.ivProfilePicture)
+        } else {
+            binding.ivProfilePicture.visibility = View.GONE
+            binding.tvAvatarInitial.visibility  = View.VISIBLE
+            binding.tvAvatarInitial.text = user.name.firstOrNull()?.uppercaseChar()?.toString() ?: "U"
+            try {
+                binding.tvAvatarInitial.backgroundTintList =
+                    android.content.res.ColorStateList.valueOf(Color.parseColor(user.avatarColorHex))
+            } catch (ignore: Exception) {}
+        }
     }
 
-    private fun bitmapToBase64(bitmap: Bitmap): String {
-        val outputStream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
-        val byteArray = outputStream.toByteArray()
-        return Base64.encodeToString(byteArray, Base64.DEFAULT)
+    private fun uploadProfilePicture(uri: Uri) {
+        val userId = session.getCurrentUserId() ?: return
+        Toast.makeText(requireContext(), "Uploading...", Toast.LENGTH_SHORT).show()
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val storageRef = FirebaseStorage.getInstance()
+                    .reference.child("profile_pictures/$userId/${UUID.randomUUID()}.jpg")
+                storageRef.putFile(uri).await()
+                val downloadUrl = storageRef.downloadUrl.await().toString()
+
+                repo.updateProfilePictureUrl(userId, downloadUrl)
+                // Update cached user so avatar reflects immediately
+                currentUser = currentUser?.copy(profilePictureUrl = downloadUrl)
+                currentUser?.let { setupAvatar(it) }
+
+                Toast.makeText(requireContext(), "Profile picture updated", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Failed to upload picture", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     override fun onDestroyView() {

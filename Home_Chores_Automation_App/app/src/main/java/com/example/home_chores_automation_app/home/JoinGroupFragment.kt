@@ -6,19 +6,21 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.example.home_chores_automation_app.data.model.AppNotification
 import com.example.home_chores_automation_app.data.prefs.SessionManager
-import com.example.home_chores_automation_app.data.repository.AppRepository
+import com.example.home_chores_automation_app.data.repository.FirebaseRepository
 import com.example.home_chores_automation_app.databinding.FragmentJoinGroupBinding
+import kotlinx.coroutines.launch
+import java.util.UUID
 
 class JoinGroupFragment : Fragment() {
 
     private var _binding: FragmentJoinGroupBinding? = null
     private val binding get() = _binding!!
 
-    private lateinit var repo: AppRepository
-    private lateinit var session: SessionManager
+    private val repo = FirebaseRepository.getInstance()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -32,16 +34,8 @@ class JoinGroupFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        repo = AppRepository.getInstance(requireContext())
-        session = SessionManager(requireContext())
-
-        binding.btnBack.setOnClickListener {
-            findNavController().popBackStack()
-        }
-
-        binding.btnJoin.setOnClickListener {
-            joinGroup()
-        }
+        binding.btnBack.setOnClickListener { findNavController().popBackStack() }
+        binding.btnJoin.setOnClickListener { joinGroup() }
     }
 
     private fun joinGroup() {
@@ -53,38 +47,46 @@ class JoinGroupFragment : Fragment() {
         }
         binding.tilInviteCode.error = null
 
-        val group = repo.findGroupByInviteCode(code)
-        if (group == null) {
-            binding.tilInviteCode.error = "No group found with this invite code"
-            return
+        val userId = SessionManager(requireContext()).getCurrentUserId() ?: return
+        binding.btnJoin.isEnabled = false
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val group = repo.getGroupByInviteCode(code)
+                if (group == null) {
+                    binding.tilInviteCode.error = "No group found with this invite code"
+                    binding.btnJoin.isEnabled = true
+                    return@launch
+                }
+
+                if (group.memberIds.contains(userId)) {
+                    Toast.makeText(requireContext(), "You are already a member of \"${group.name}\"", Toast.LENGTH_SHORT).show()
+                    findNavController().popBackStack()
+                    return@launch
+                }
+
+                group.memberIds.add(userId)
+                repo.updateGroup(group)
+
+                val joinerName = repo.getUserById(userId)?.name ?: "Someone"
+                repo.addNotification(
+                    AppNotification(
+                        id        = UUID.randomUUID().toString(),
+                        userId    = group.adminId,
+                        title     = "New Member Joined",
+                        message   = "$joinerName joined your group \"${group.name}\"",
+                        isRead    = false,
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+
+                Toast.makeText(requireContext(), "Joined \"${group.name}\" successfully!", Toast.LENGTH_SHORT).show()
+                findNavController().popBackStack()
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Failed to join group", Toast.LENGTH_SHORT).show()
+                binding.btnJoin.isEnabled = true
+            }
         }
-
-        val userId = session.getCurrentUserId() ?: return
-
-        if (group.memberIds.contains(userId)) {
-            Toast.makeText(requireContext(), "You are already a member of \"${group.name}\"", Toast.LENGTH_SHORT).show()
-            findNavController().popBackStack()
-            return
-        }
-
-        group.memberIds.add(userId)
-        repo.updateGroup(group)
-
-        // Notify the group admin
-        val joinerName = repo.findUserById(userId)?.name ?: "Someone"
-        repo.addNotification(
-            AppNotification(
-                id = java.util.UUID.randomUUID().toString(),
-                userId = group.adminId,
-                title = "New Member Joined",
-                message = "$joinerName joined your group \"${group.name}\"",
-                isRead = false,
-                createdAt = System.currentTimeMillis()
-            )
-        )
-
-        Toast.makeText(requireContext(), "Joined \"${group.name}\" successfully!", Toast.LENGTH_SHORT).show()
-        findNavController().popBackStack()
     }
 
     override fun onDestroyView() {

@@ -1,20 +1,15 @@
 package com.example.home_chores_automation_app.data.prefs
 
 import android.content.Context
+import com.google.firebase.auth.FirebaseAuth
 
 class SessionManager(context: Context) {
 
-    private val prefs = context.getSharedPreferences("session_prefs", Context.MODE_PRIVATE)
+    private val auth = FirebaseAuth.getInstance()
 
-    companion object {
-        private const val KEY_USER_ID = "current_user_id"
-    }
+    fun logout() = auth.signOut()
 
-    fun login(userId: String) = prefs.edit().putString(KEY_USER_ID, userId).apply()
+    fun getCurrentUserId(): String? = auth.currentUser?.uid
 
-    fun logout() = prefs.edit().remove(KEY_USER_ID).apply()
-
-    fun getCurrentUserId(): String? = prefs.getString(KEY_USER_ID, null)
-
-    fun isLoggedIn(): Boolean = getCurrentUserId() != null
+    fun isLoggedIn(): Boolean = auth.currentUser != null
 }

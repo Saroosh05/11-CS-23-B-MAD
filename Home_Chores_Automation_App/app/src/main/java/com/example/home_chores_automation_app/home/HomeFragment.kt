@@ -1,21 +1,22 @@
 package com.example.home_chores_automation_app.home
 
-import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.os.Bundle
-import android.util.Base64
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.bumptech.glide.Glide
 import com.example.home_chores_automation_app.R
 import com.example.home_chores_automation_app.data.model.User
 import com.example.home_chores_automation_app.data.prefs.SessionManager
-import com.example.home_chores_automation_app.data.repository.AppRepository
+import com.example.home_chores_automation_app.data.repository.FirebaseRepository
 import com.example.home_chores_automation_app.databinding.FragmentHomeBinding
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -38,10 +39,6 @@ class HomeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val session = SessionManager(requireContext())
-        val repo = AppRepository.getInstance(requireContext())
-        val userId = session.getCurrentUserId() ?: return
-
         binding.rvGroups.layoutManager = LinearLayoutManager(requireContext())
 
         binding.cardNewGroup.setOnClickListener {
@@ -62,18 +59,19 @@ class HomeFragment : Fragment() {
             findNavController().navigate(R.id.action_home_to_myTasks, bundle)
         }
 
-        refreshDashboard(repo, userId)
+        refreshDashboard()
     }
 
     override fun onResume() {
         super.onResume()
-        val session = SessionManager(requireContext())
-        val repo = AppRepository.getInstance(requireContext())
-        val userId = session.getCurrentUserId() ?: return
-        refreshDashboard(repo, userId)
+        refreshDashboard()
     }
 
-    private fun refreshDashboard(repo: AppRepository, userId: String) {
+    private fun refreshDashboard() {
+        val session = SessionManager(requireContext())
+        val repo    = FirebaseRepository.getInstance()
+        val userId  = session.getCurrentUserId() ?: return
+
         // Time-based greeting
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         binding.tvGreeting.text = when {
@@ -81,63 +79,57 @@ class HomeFragment : Fragment() {
             hour < 18 -> "Good afternoon,"
             else      -> "Good evening,"
         }
-        val user = repo.findUserById(userId)
-        binding.tvUserName.text = "${user?.name ?: "User"}!"
-
-        // Today's date
         binding.tvDate.text = SimpleDateFormat("EEEE, MMM d, yyyy", Locale.getDefault()).format(Date())
 
-        // Avatar
-        setupAvatar(user)
+        viewLifecycleOwner.lifecycleScope.launch {
+            val user   = repo.getUserById(userId)
+            val groups = repo.getGroupsForUser(userId)
 
-        // Groups
-        val groups = repo.getGroupsForUser(userId)
-        binding.tvStatGroups.text = groups.size.toString()
-        val groupWord = if (groups.size == 1) "group" else "groups"
-        binding.tvGroupCount.text = "${groups.size} $groupWord"
+            if (_binding == null) return@launch
 
-        // Task stats (tasks assigned to this user)
-        val myTasks = groups.flatMap { repo.getTasksForGroup(it.id) }.filter { it.assignedTo == userId }
-        binding.tvStatPending.text = myTasks.count { !it.isCompleted }.toString()
-        binding.tvStatDone.text = myTasks.count { it.isCompleted }.toString()
+            binding.tvUserName.text = "${user?.name ?: "User"}!"
+            setupAvatar(user)
 
-        // Groups list
-        if (groups.isEmpty()) {
-            binding.rvGroups.visibility = View.GONE
-            binding.layoutEmpty.visibility = View.VISIBLE
-        } else {
-            binding.rvGroups.visibility = View.VISIBLE
-            binding.layoutEmpty.visibility = View.GONE
-            binding.rvGroups.adapter = GroupAdapter(groups) { group ->
-                val bundle = android.os.Bundle().apply { putString("groupId", group.id) }
-                findNavController().navigate(R.id.action_home_to_groupDetail, bundle)
+            binding.tvStatGroups.text = groups.size.toString()
+            val groupWord = if (groups.size == 1) "group" else "groups"
+            binding.tvGroupCount.text = "${groups.size} $groupWord"
+
+            val myTasks = groups.flatMap { repo.getTasksForGroup(it.id) }.filter { it.assignedTo == userId }
+            binding.tvStatPending.text = myTasks.count { !it.isCompleted }.toString()
+            binding.tvStatDone.text    = myTasks.count { it.isCompleted }.toString()
+
+            if (groups.isEmpty()) {
+                binding.rvGroups.visibility   = View.GONE
+                binding.layoutEmpty.visibility = View.VISIBLE
+            } else {
+                binding.rvGroups.visibility   = View.VISIBLE
+                binding.layoutEmpty.visibility = View.GONE
+                binding.rvGroups.adapter = GroupAdapter(groups) { group ->
+                    val bundle = android.os.Bundle().apply { putString("groupId", group.id) }
+                    findNavController().navigate(R.id.action_home_to_groupDetail, bundle)
+                }
             }
-        }
 
-        // Notification badge on the bottom nav Alerts item
-        val unreadCount = repo.getUnreadCount(userId)
-        val navView = requireActivity().findViewById<BottomNavigationView>(R.id.bottomNavView)
-        if (unreadCount > 0) {
-            val badge = navView?.getOrCreateBadge(R.id.notificationsFragment)
-            badge?.isVisible = true
-            badge?.number = unreadCount
-        } else {
-            navView?.removeBadge(R.id.notificationsFragment)
+            val unreadCount = repo.getUnreadCount(userId)
+            val navView = requireActivity().findViewById<BottomNavigationView>(R.id.bottomNavView)
+            if (unreadCount > 0) {
+                val badge = navView?.getOrCreateBadge(R.id.notificationsFragment)
+                badge?.isVisible = true
+                badge?.number = unreadCount
+            } else {
+                navView?.removeBadge(R.id.notificationsFragment)
+            }
         }
     }
 
     private fun setupAvatar(user: User?) {
-        if (user?.profilePictureBase64 != null) {
-            try {
-                val bytes = Base64.decode(user.profilePictureBase64, Base64.DEFAULT)
-                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                binding.ivHomeAvatar.setImageBitmap(bitmap)
-                binding.ivHomeAvatar.visibility = View.VISIBLE
-                binding.tvAvatarInitial.visibility = View.GONE
-                return
-            } catch (ignore: Exception) { /* fall through to initial */ }
+        if (user?.profilePictureUrl != null) {
+            binding.ivHomeAvatar.visibility  = View.VISIBLE
+            binding.tvAvatarInitial.visibility = View.GONE
+            Glide.with(this).load(user.profilePictureUrl).circleCrop().into(binding.ivHomeAvatar)
+            return
         }
-        binding.ivHomeAvatar.visibility = View.GONE
+        binding.ivHomeAvatar.visibility  = View.GONE
         binding.tvAvatarInitial.visibility = View.VISIBLE
         binding.tvAvatarInitial.text = user?.name?.firstOrNull()?.uppercaseChar()?.toString() ?: "U"
         try {

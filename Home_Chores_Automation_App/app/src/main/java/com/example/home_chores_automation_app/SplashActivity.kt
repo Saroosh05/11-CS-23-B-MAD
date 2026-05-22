@@ -6,7 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import androidx.appcompat.app.AppCompatActivity
 import com.example.home_chores_automation_app.auth.AuthActivity
-import com.example.home_chores_automation_app.data.prefs.SessionManager
+import com.google.firebase.auth.FirebaseAuth
 
 class SplashActivity : AppCompatActivity() {
 
@@ -15,8 +15,7 @@ class SplashActivity : AppCompatActivity() {
         setContentView(R.layout.activity_splash)
 
         Handler(Looper.getMainLooper()).postDelayed({
-            val session = SessionManager(this)
-            val intent = if (session.isLoggedIn()) {
+            val intent = if (FirebaseAuth.getInstance().currentUser != null) {
                 Intent(this, MainActivity::class.java)
             } else {
                 Intent(this, AuthActivity::class.java)

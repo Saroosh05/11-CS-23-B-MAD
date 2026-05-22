@@ -6,12 +6,14 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.example.home_chores_automation_app.data.model.Group
 import com.example.home_chores_automation_app.data.prefs.SessionManager
-import com.example.home_chores_automation_app.data.repository.AppRepository
+import com.example.home_chores_automation_app.data.repository.FirebaseRepository
 import com.example.home_chores_automation_app.databinding.FragmentCreateGroupBinding
 import com.google.android.material.button.MaterialButton
+import kotlinx.coroutines.launch
 import java.util.UUID
 
 class CreateGroupFragment : Fragment() {
@@ -19,8 +21,7 @@ class CreateGroupFragment : Fragment() {
     private var _binding: FragmentCreateGroupBinding? = null
     private val binding get() = _binding!!
 
-    private lateinit var repo: AppRepository
-    private lateinit var session: SessionManager
+    private val repo    = FirebaseRepository.getInstance()
     private var selectedType: String = "Home"
 
     override fun onCreateView(
@@ -35,22 +36,15 @@ class CreateGroupFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        repo = AppRepository.getInstance(requireContext())
-        session = SessionManager(requireContext())
-
-        // Default selection
         setTypeSelected(binding.btnTypeHome)
 
-        binding.btnBack.setOnClickListener {
-            findNavController().popBackStack()
-        }
+        binding.btnBack.setOnClickListener { findNavController().popBackStack() }
 
-        // Type selection buttons
         val typeButtons = listOf(
-            binding.btnTypeHome to "Home",
+            binding.btnTypeHome   to "Home",
             binding.btnTypeOffice to "Office",
             binding.btnTypeHostel to "Hostel",
-            binding.btnTypeOther to "Other"
+            binding.btnTypeOther  to "Other"
         )
         for ((btn, type) in typeButtons) {
             btn.setOnClickListener {
@@ -60,27 +54,17 @@ class CreateGroupFragment : Fragment() {
             }
         }
 
-        binding.btnCreate.setOnClickListener {
-            createGroup()
-        }
+        binding.btnCreate.setOnClickListener { createGroup() }
     }
 
     private fun setTypeSelected(button: MaterialButton) {
-        button.setBackgroundColor(
-            resources.getColor(com.example.home_chores_automation_app.R.color.primary, null)
-        )
-        button.setTextColor(
-            resources.getColor(com.example.home_chores_automation_app.R.color.white, null)
-        )
+        button.setBackgroundColor(resources.getColor(com.example.home_chores_automation_app.R.color.primary, null))
+        button.setTextColor(resources.getColor(com.example.home_chores_automation_app.R.color.white, null))
     }
 
     private fun setTypeDeselected(button: MaterialButton) {
-        button.setBackgroundColor(
-            resources.getColor(android.R.color.transparent, null)
-        )
-        button.setTextColor(
-            resources.getColor(com.example.home_chores_automation_app.R.color.primary, null)
-        )
+        button.setBackgroundColor(resources.getColor(android.R.color.transparent, null))
+        button.setTextColor(resources.getColor(com.example.home_chores_automation_app.R.color.primary, null))
     }
 
     private fun generateInviteCode(): String {
@@ -90,29 +74,35 @@ class CreateGroupFragment : Fragment() {
 
     private fun createGroup() {
         val name = binding.etGroupName.text.toString().trim()
-
         if (name.isEmpty()) {
             binding.tilGroupName.error = "Please enter a group name"
             return
         }
         binding.tilGroupName.error = null
 
-        val userId = session.getCurrentUserId() ?: return
+        val userId = SessionManager(requireContext()).getCurrentUserId() ?: return
+        binding.btnCreate.isEnabled = false
 
         val group = Group(
-            id = UUID.randomUUID().toString(),
-            name = name,
-            type = selectedType,
-            adminId = userId,
-            memberIds = mutableListOf(userId),
+            id         = UUID.randomUUID().toString(),
+            name       = name,
+            type       = selectedType,
+            adminId    = userId,
+            memberIds  = mutableListOf(userId),   // admin is always in memberIds
             inviteCode = generateInviteCode(),
-            createdAt = System.currentTimeMillis()
+            createdAt  = System.currentTimeMillis()
         )
 
-        repo.createGroup(group)
-
-        Toast.makeText(requireContext(), "Group \"$name\" created!", Toast.LENGTH_SHORT).show()
-        findNavController().popBackStack()
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                repo.createGroup(group)
+                Toast.makeText(requireContext(), "Group \"$name\" created!", Toast.LENGTH_SHORT).show()
+                findNavController().popBackStack()
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Failed to create group", Toast.LENGTH_SHORT).show()
+                binding.btnCreate.isEnabled = true
+            }
+        }
     }
 
     override fun onDestroyView() {

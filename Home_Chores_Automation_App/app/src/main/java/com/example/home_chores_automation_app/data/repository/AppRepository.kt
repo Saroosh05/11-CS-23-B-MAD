@@ -66,23 +66,11 @@ class AppRepository private constructor(context: Context) {
     }
 
     fun updateUserPassword(userId: String, newPassword: String) {
-        val list = loadUsers()
-        val idx = list.indexOfFirst { it.id == userId }
-        if (idx >= 0) {
-            val updatedUser = list[idx].copy(password = newPassword)
-            list[idx] = updatedUser
-            saveUsers(list)
-        }
+        // Password management moved to Firebase Auth
     }
 
     fun updateProfilePicture(userId: String, base64Image: String?) {
-        val list = loadUsers()
-        val idx = list.indexOfFirst { it.id == userId }
-        if (idx >= 0) {
-            val updatedUser = list[idx].copy(profilePictureBase64 = base64Image)
-            list[idx] = updatedUser
-            saveUsers(list)
-        }
+        // Profile picture storage moved to Firebase Storage
     }
 
     fun checkEmailExists(email: String, excludeUserId: String): Boolean {
