@@ -71,4 +71,7 @@ dependencies {
 
     // Glide for loading profile pictures from URLs
     implementation("com.github.bumptech.glide:glide:4.16.0")
+
+    // WorkManager for background scheduled jobs (reminders, overdue checks)
+    implementation(libs.workmanager)
 }

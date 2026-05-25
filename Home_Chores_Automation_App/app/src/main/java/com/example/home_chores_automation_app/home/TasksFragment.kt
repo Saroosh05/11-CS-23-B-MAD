@@ -160,23 +160,27 @@ class TasksFragment : Fragment() {
     }
 
     private suspend fun regenerateRecurringTask(completedTask: Task, adminId: String) {
-        val newTask = repo.buildRecurringTask(completedTask)
+        // Use round-robin rotation: next person in the group's member list
+        val group        = repo.getGroupById(completedTask.groupId) ?: return
+        val nextAssignee = repo.getNextAssigneeByRotation(group)
+        val newTask      = repo.buildRecurringTask(completedTask, nextAssignee)
         repo.createTask(newTask)
+
         val assigneeName = repo.getUserById(newTask.assignedTo)?.name ?: "Someone"
+        repo.addNotification(AppNotification(
+            id = UUID.randomUUID().toString(), userId = newTask.assignedTo,
+            title = "Recurring Task — Your Turn",
+            message = "It's your turn: \"${newTask.title}\" has been auto-assigned to you.",
+            isRead = false, createdAt = System.currentTimeMillis()
+        ))
         if (newTask.assignedTo != adminId) {
             repo.addNotification(AppNotification(
-                id = UUID.randomUUID().toString(), userId = newTask.assignedTo,
-                title = "New Recurring Task Assigned",
-                message = "You have been assigned \"${newTask.title}\" (Recurring Task)",
+                id = UUID.randomUUID().toString(), userId = adminId,
+                title = "Recurring Task Rotated",
+                message = "\"${newTask.title}\" auto-assigned to $assigneeName (rotation).",
                 isRead = false, createdAt = System.currentTimeMillis()
             ))
         }
-        repo.addNotification(AppNotification(
-            id = UUID.randomUUID().toString(), userId = adminId,
-            title = "Recurring Task Generated",
-            message = "\"${newTask.title}\" has been automatically recreated and assigned to $assigneeName.",
-            isRead = false, createdAt = System.currentTimeMillis()
-        ))
         loadTasks()
     }
 

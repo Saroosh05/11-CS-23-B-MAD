@@ -7,5 +7,6 @@ data class Group(
     val adminId: String = "",
     val memberIds: MutableList<String> = mutableListOf(),
     val inviteCode: String = "",
-    val createdAt: Long = 0L
+    val createdAt: Long = 0L,
+    val rotationIndex: Int = 0   // tracks whose turn it is in round-robin rotation
 )

@@ -40,6 +40,10 @@ class AddTaskFragment : Fragment() {
     private val recurrenceOptions = listOf("None", "Daily", "Weekly", "Monthly")
     private val recurrenceValues  = listOf("none", "daily", "weekly", "monthly")
 
+    companion object {
+        private const val AUTO_ASSIGN_LABEL = "Auto-assign (Balanced)"
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -68,14 +72,13 @@ class AddTaskFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             val group = repo.getGroupById(groupId) ?: return@launch
             members = group.memberIds.mapNotNull { repo.getUserById(it) }
-            val memberNames = members.map { it.name }
+            // First entry is the balanced auto-assign option
+            val displayNames = listOf(AUTO_ASSIGN_LABEL) + members.map { it.name }
             val memberAdapter = ArrayAdapter(
-                requireContext(), android.R.layout.simple_dropdown_item_1line, memberNames
+                requireContext(), android.R.layout.simple_dropdown_item_1line, displayNames
             )
             (binding.spinnerAssign as AutoCompleteTextView).setAdapter(memberAdapter)
-            if (memberNames.isNotEmpty()) {
-                (binding.spinnerAssign as AutoCompleteTextView).setText(memberNames[0], false)
-            }
+            (binding.spinnerAssign as AutoCompleteTextView).setText(displayNames[0], false)
         }
 
         binding.btnAddTask.setOnClickListener { addTask() }
@@ -114,36 +117,41 @@ class AddTaskFragment : Fragment() {
         }
         binding.tilTaskTitle.error = null
 
-        val selectedName  = (binding.spinnerAssign as AutoCompleteTextView).text.toString()
-        val selectedIndex = members.indexOfFirst { it.name == selectedName }
-        val assignedUserId = if (members.isNotEmpty() && selectedIndex >= 0) {
-            members[selectedIndex].id
-        } else {
-            session.getCurrentUserId() ?: return
-        }
+        val selectedName = (binding.spinnerAssign as AutoCompleteTextView).text.toString()
+        val isAutoAssign = selectedName == AUTO_ASSIGN_LABEL
 
-        val recText      = (binding.spinnerRecurrence as AutoCompleteTextView).text.toString()
-        val recIdx       = recurrenceOptions.indexOf(recText)
-        val recurrence   = if (recIdx >= 0) recurrenceValues[recIdx] else "none"
-        val creatorId    = session.getCurrentUserId() ?: return
-
-        val task = Task(
-            id          = UUID.randomUUID().toString(),
-            groupId     = groupId,
-            title       = title,
-            description = description,
-            assignedTo  = assignedUserId,
-            createdBy   = creatorId,
-            isCompleted = false,
-            createdAt   = System.currentTimeMillis(),
-            dueDate     = selectedDueDate,
-            recurrence  = recurrence
-        )
+        val recText    = (binding.spinnerRecurrence as AutoCompleteTextView).text.toString()
+        val recIdx     = recurrenceOptions.indexOf(recText)
+        val recurrence = if (recIdx >= 0) recurrenceValues[recIdx] else "none"
+        val creatorId  = session.getCurrentUserId() ?: return
 
         binding.btnAddTask.isEnabled = false
         viewLifecycleOwner.lifecycleScope.launch {
             try {
+                // Resolve assignee: auto-balance picks the member with fewest pending tasks
+                val assignedUserId = if (isAutoAssign) {
+                    repo.getNextAssigneeByWorkload(groupId, members.map { it.id })
+                        .ifEmpty { creatorId }
+                } else {
+                    val idx = members.indexOfFirst { it.name == selectedName }
+                    if (members.isNotEmpty() && idx >= 0) members[idx].id else creatorId
+                }
+
+                val task = Task(
+                    id          = UUID.randomUUID().toString(),
+                    groupId     = groupId,
+                    title       = title,
+                    description = description,
+                    assignedTo  = assignedUserId,
+                    createdBy   = creatorId,
+                    isCompleted = false,
+                    createdAt   = System.currentTimeMillis(),
+                    dueDate     = selectedDueDate,
+                    recurrence  = recurrence
+                )
                 repo.createTask(task)
+
+                val assigneeName = repo.getUserById(assignedUserId)?.name ?: "Someone"
                 if (assignedUserId != creatorId) {
                     val creatorName = repo.getUserById(creatorId)?.name ?: "Someone"
                     repo.addNotification(AppNotification(
@@ -153,7 +161,8 @@ class AddTaskFragment : Fragment() {
                         isRead = false, createdAt = System.currentTimeMillis()
                     ))
                 }
-                Toast.makeText(requireContext(), "Task \"$title\" added!", Toast.LENGTH_SHORT).show()
+                val autoMsg = if (isAutoAssign) " (auto-balanced to $assigneeName)" else ""
+                Toast.makeText(requireContext(), "Task \"$title\" added$autoMsg!", Toast.LENGTH_SHORT).show()
                 findNavController().popBackStack()
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "Failed to add task", Toast.LENGTH_SHORT).show()

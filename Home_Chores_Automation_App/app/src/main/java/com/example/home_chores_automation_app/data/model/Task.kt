@@ -12,5 +12,6 @@ data class Task(
     val dueDate: Long = 0L,
     val recurrence: String = "none",  // "none", "daily", "weekly", "monthly"
     val overdueNotified: Boolean = false,
+    val reminderSent: Boolean = false, // true once the pre-due reminder notification is sent
     val completedAt: Long = 0L
 )

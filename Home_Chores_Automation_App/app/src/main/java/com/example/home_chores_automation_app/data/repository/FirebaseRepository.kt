@@ -135,15 +135,66 @@ class FirebaseRepository private constructor() {
         return cal.timeInMillis
     }
 
-    fun buildRecurringTask(completedTask: Task): Task {
+    /** Build the next recurring task, assigned to nextAssignee (defaults to same person). */
+    fun buildRecurringTask(completedTask: Task, nextAssignee: String = completedTask.assignedTo): Task {
         return completedTask.copy(
-            id = UUID.randomUUID().toString(),
-            isCompleted = false,
-            createdAt = System.currentTimeMillis(),
-            dueDate = getNextDeadline(completedTask),
+            id              = UUID.randomUUID().toString(),
+            isCompleted     = false,
+            assignedTo      = nextAssignee,
+            createdAt       = System.currentTimeMillis(),
+            dueDate         = getNextDeadline(completedTask),
             overdueNotified = false,
-            completedAt = 0L
+            reminderSent    = false,
+            completedAt     = 0L
         )
+    }
+
+    /**
+     * Round-robin rotation: returns the next member in the group's rotation order
+     * and advances the rotationIndex counter in Firestore.
+     */
+    suspend fun getNextAssigneeByRotation(group: Group): String {
+        val members = group.memberIds
+        if (members.isEmpty()) return ""
+        val idx = group.rotationIndex % members.size
+        db.collection("groups").document(group.id)
+            .update("rotationIndex", group.rotationIndex + 1).await()
+        return members[idx]
+    }
+
+    /**
+     * Workload balancing: returns the member userId who has the fewest incomplete tasks,
+     * so new tasks are spread evenly across the team.
+     */
+    suspend fun getNextAssigneeByWorkload(groupId: String, memberIds: List<String>): String {
+        if (memberIds.isEmpty()) return ""
+        val tasks = getTasksForGroup(groupId)
+        val pendingCount = memberIds.associateWith { uid ->
+            tasks.count { it.assignedTo == uid && !it.isCompleted }
+        }
+        return pendingCount.minByOrNull { it.value }?.key ?: memberIds.first()
+    }
+
+    /**
+     * Returns tasks assigned to userId that are due within the next 2 hours
+     * and have not yet had a reminder sent.
+     */
+    suspend fun getUpcomingTasksForReminder(userId: String): List<Task> {
+        val now          = System.currentTimeMillis()
+        val twoHoursAway = now + 2 * 60 * 60 * 1000L
+        return getGroupsForUser(userId)
+            .flatMap { getTasksForGroup(it.id) }
+            .filter { task ->
+                task.assignedTo == userId
+                    && !task.isCompleted
+                    && !task.reminderSent
+                    && task.dueDate in (now + 1)..twoHoursAway
+            }
+    }
+
+    suspend fun markReminderSent(taskId: String) {
+        db.collection("tasks").document(taskId)
+            .update("reminderSent", true).await()
     }
 
     // ── NOTIFICATIONS ────────────────────────────────────────────────────────
