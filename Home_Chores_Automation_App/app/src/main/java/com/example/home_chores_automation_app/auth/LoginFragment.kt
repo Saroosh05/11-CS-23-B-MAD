@@ -57,6 +57,10 @@ class LoginFragment : Fragment() {
             }
         }
 
+        view.findViewById<MaterialButton>(R.id.btnForgotPassword).setOnClickListener {
+            findNavController().navigate(R.id.action_login_to_forgotPassword)
+        }
+
         btnGoRegister.setOnClickListener {
             findNavController().navigate(R.id.action_login_to_register)
         }
