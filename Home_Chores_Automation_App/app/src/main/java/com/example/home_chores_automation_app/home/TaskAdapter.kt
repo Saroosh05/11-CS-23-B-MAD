@@ -146,6 +146,28 @@ class TaskAdapter(
 
     override fun getItemCount() = tasks.size
 
+    /** Expose list for swipe gesture reading. */
+    fun getTasks(): List<Task> = tasks
+
+    /** Remove item at position and return it (used by swipe-to-delete). */
+    fun removeAt(pos: Int): Task {
+        val task = tasks.removeAt(pos)
+        notifyItemRemoved(pos)
+        return task
+    }
+
+    /** Re-insert item (used for swipe undo). */
+    fun insertAt(pos: Int, task: Task) {
+        tasks.add(pos, task)
+        notifyItemInserted(pos)
+    }
+
+    /** Update item at position (used by swipe-to-complete). */
+    fun updateAt(pos: Int, task: Task) {
+        tasks[pos] = task
+        notifyItemChanged(pos)
+    }
+
     private fun formatDuration(ms: Long): String {
         val minutes = ms / 60_000
         val hours = minutes / 60

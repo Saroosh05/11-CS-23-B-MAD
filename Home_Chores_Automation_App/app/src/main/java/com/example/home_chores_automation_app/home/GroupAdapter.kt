@@ -2,6 +2,7 @@ package com.example.home_chores_automation_app.home
 
 import android.graphics.Color
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.example.home_chores_automation_app.data.model.Group
@@ -9,7 +10,7 @@ import com.example.home_chores_automation_app.databinding.ItemGroupBinding
 
 class GroupAdapter(
     private val groups: List<Group>,
-    private val onClick: (Group) -> Unit
+    private val onClick: (Group, View) -> Unit
 ) : RecyclerView.Adapter<GroupAdapter.ViewHolder>() {
 
     inner class ViewHolder(val binding: ItemGroupBinding) : RecyclerView.ViewHolder(binding.root)
@@ -34,7 +35,8 @@ class GroupAdapter(
         }
         holder.binding.viewTypeDot.background.setTint(dotColor)
 
-        holder.itemView.setOnClickListener { onClick(group) }
+        holder.itemView.transitionName = "group_card_${group.id}"
+        holder.itemView.setOnClickListener { onClick(group, holder.itemView) }
     }
 
     override fun getItemCount() = groups.size

@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import androidx.appcompat.app.AppCompatDelegate
 import com.bumptech.glide.Glide
 import com.example.home_chores_automation_app.R
 import com.example.home_chores_automation_app.auth.AuthActivity
@@ -59,6 +60,15 @@ class ProfileFragment : Fragment() {
         binding.btnEditProfile.setOnClickListener { findNavController().navigate(R.id.action_profile_to_editProfile) }
         binding.btnChangePassword.setOnClickListener { findNavController().navigate(R.id.action_profile_to_changePassword) }
         binding.btnChangePicture.setOnClickListener { galleryLauncher.launch("image/*") }
+
+        // Dark mode toggle
+        binding.switchDarkMode.isChecked = session.isDarkMode()
+        binding.switchDarkMode.setOnCheckedChangeListener { _, isChecked ->
+            session.setDarkMode(isChecked)
+            AppCompatDelegate.setDefaultNightMode(
+                if (isChecked) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+            )
+        }
         binding.btnLogout.setOnClickListener {
             session.logout()
             startActivity(Intent(requireContext(), AuthActivity::class.java).apply {

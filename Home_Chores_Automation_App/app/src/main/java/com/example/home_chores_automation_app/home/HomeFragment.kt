@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.FragmentNavigatorExtras
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.bumptech.glide.Glide
@@ -114,9 +115,10 @@ class HomeFragment : Fragment() {
             } else {
                 binding.rvGroups.visibility   = View.VISIBLE
                 binding.layoutEmpty.visibility = View.GONE
-                binding.rvGroups.adapter = GroupAdapter(groups) { group ->
+                binding.rvGroups.adapter = GroupAdapter(groups) { group, cardView ->
                     val bundle = android.os.Bundle().apply { putString("groupId", group.id) }
-                    findNavController().navigate(R.id.action_home_to_groupDetail, bundle)
+                    val extras = FragmentNavigatorExtras(cardView to "group_card_${group.id}")
+                    findNavController().navigate(R.id.action_home_to_groupDetail, bundle, null, extras)
                 }
             }
 

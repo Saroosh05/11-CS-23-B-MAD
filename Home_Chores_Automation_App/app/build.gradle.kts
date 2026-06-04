@@ -77,4 +77,7 @@ dependencies {
 
     // OkHttp for Gemini AI API calls
     implementation(libs.okhttp)
+
+    // MPAndroidChart for analytics pie + bar charts
+    implementation(libs.mpandroidchart)
 }

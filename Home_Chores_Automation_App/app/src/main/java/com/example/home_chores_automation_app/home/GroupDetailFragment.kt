@@ -3,12 +3,14 @@ package com.example.home_chores_automation_app.home
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.core.view.doOnPreDraw
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
@@ -17,6 +19,7 @@ import com.example.home_chores_automation_app.R
 import com.example.home_chores_automation_app.data.prefs.SessionManager
 import com.example.home_chores_automation_app.data.repository.FirebaseRepository
 import com.example.home_chores_automation_app.databinding.FragmentGroupDetailBinding
+import com.google.android.material.transition.MaterialContainerTransform
 import kotlinx.coroutines.launch
 
 class GroupDetailFragment : Fragment() {
@@ -29,6 +32,11 @@ class GroupDetailFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
+        sharedElementEnterTransition = MaterialContainerTransform().apply {
+            duration = 400L
+            scrimColor = Color.TRANSPARENT
+            setAllContainerColors(Color.TRANSPARENT)
+        }
         _binding = FragmentGroupDetailBinding.inflate(inflater, container, false)
         return binding.root
     }
@@ -39,6 +47,11 @@ class GroupDetailFragment : Fragment() {
         val repo          = FirebaseRepository.getInstance()
         val currentUserId = SessionManager(requireContext()).getCurrentUserId() ?: return
         val groupId       = arguments?.getString("groupId") ?: return
+
+        // Shared element transition: match the card from HomeFragment
+        binding.root.transitionName = "group_card_$groupId"
+        postponeEnterTransition()
+        view.doOnPreDraw { startPostponedEnterTransition() }
 
         binding.btnBack.setOnClickListener { findNavController().popBackStack() }
 
@@ -74,6 +87,11 @@ class GroupDetailFragment : Fragment() {
             binding.btnAiInsights.setOnClickListener {
                 val bundle = Bundle().apply { putString("groupId", groupId) }
                 findNavController().navigate(R.id.action_groupDetail_to_aiInsights, bundle)
+            }
+
+            binding.btnAnalytics.setOnClickListener {
+                val bundle = Bundle().apply { putString("groupId", groupId) }
+                findNavController().navigate(R.id.action_groupDetail_to_analytics, bundle)
             }
 
             if (currentUserId == group.adminId) {
