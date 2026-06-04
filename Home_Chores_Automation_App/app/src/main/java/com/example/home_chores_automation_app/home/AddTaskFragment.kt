@@ -17,6 +17,7 @@ import com.example.home_chores_automation_app.data.model.Task
 import com.example.home_chores_automation_app.data.model.User
 import com.example.home_chores_automation_app.data.prefs.SessionManager
 import com.example.home_chores_automation_app.data.repository.FirebaseRepository
+import com.example.home_chores_automation_app.data.repository.GeminiRepository
 import com.example.home_chores_automation_app.databinding.FragmentAddTaskBinding
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -30,6 +31,7 @@ class AddTaskFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val repo    = FirebaseRepository.getInstance()
+    private val gemini  = GeminiRepository.getInstance()
     private lateinit var session: SessionManager
     private lateinit var groupId: String
     private var members: List<User> = emptyList()
@@ -82,6 +84,63 @@ class AddTaskFragment : Fragment() {
         }
 
         binding.btnAddTask.setOnClickListener { addTask() }
+        binding.btnSuggestChores.setOnClickListener { suggestChores() }
+        binding.btnExpandDescription.setOnClickListener { expandDescription() }
+    }
+
+    private fun suggestChores() {
+        binding.btnSuggestChores.isEnabled = false
+        binding.btnSuggestChores.text      = "Thinking…"
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val group       = repo.getGroupById(groupId) ?: return@launch
+                val suggestions = gemini.suggestChores(group.type)
+                if (_binding == null) return@launch
+                // Show a dialog to pick one
+                val arr = suggestions.toTypedArray()
+                androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                    .setTitle("✨ AI Chore Suggestions")
+                    .setItems(arr) { _, idx ->
+                        binding.etTaskTitle.setText(arr[idx])
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            } catch (e: Exception) {
+                if (_binding != null)
+                    android.widget.Toast.makeText(requireContext(), "AI error: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            } finally {
+                if (_binding != null) {
+                    binding.btnSuggestChores.isEnabled = true
+                    binding.btnSuggestChores.text      = "✨ Suggest chores"
+                }
+            }
+        }
+    }
+
+    private fun expandDescription() {
+        val title = binding.etTaskTitle.text.toString().trim()
+        if (title.isEmpty()) {
+            binding.tilTaskTitle.error = "Enter a title first"
+            return
+        }
+        binding.tilTaskTitle.error = null
+        binding.btnExpandDescription.isEnabled = false
+        binding.btnExpandDescription.text      = "Thinking…"
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val desc = gemini.expandTaskDescription(title)
+                if (_binding == null) return@launch
+                binding.etDescription.setText(desc)
+            } catch (e: Exception) {
+                if (_binding != null)
+                    android.widget.Toast.makeText(requireContext(), "AI error: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            } finally {
+                if (_binding != null) {
+                    binding.btnExpandDescription.isEnabled = true
+                    binding.btnExpandDescription.text      = "✨ Write description with AI"
+                }
+            }
+        }
     }
 
     private fun showDatePicker() {

@@ -95,6 +95,13 @@
             app:exitAnim="@anim/slide_out_left"
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
+        <action
+            android:id="@+id/action_groupDetail_to_aiInsights"
+            app:destination="@id/aiInsightsFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
     </fragment>
 
     <fragment
@@ -205,6 +212,16 @@
         android:name="com.example.home_chores_automation_app.home.LeaderboardFragment"
         android:label="Leaderboard"
         tools:layout="@layout/fragment_leaderboard">
+        <argument
+            android:name="groupId"
+            app:argType="string" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/aiInsightsFragment"
+        android:name="com.example.home_chores_automation_app.home.AiInsightsFragment"
+        android:label="AI Insights"
+        tools:layout="@layout/fragment_ai_insights">
         <argument
             android:name="groupId"
             app:argType="string" />

@@ -74,4 +74,7 @@ dependencies {
 
     // WorkManager for background scheduled jobs (reminders, overdue checks)
     implementation(libs.workmanager)
+
+    // OkHttp for Gemini AI API calls
+    implementation(libs.okhttp)
 }

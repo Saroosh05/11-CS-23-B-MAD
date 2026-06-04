@@ -69,6 +69,17 @@
 
             </com.google.android.material.textfield.TextInputLayout>
 
+            <!-- AI: suggest chore titles -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSuggestChores"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="✨ Suggest chores"
+                android:textSize="13sp"
+                app:cornerRadius="8dp" />
+
             <!-- Description -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilDescription"
@@ -87,6 +98,17 @@
                     android:gravity="top" />
 
             </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- AI: expand title into description -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnExpandDescription"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="✨ Write description with AI"
+                android:textSize="13sp"
+                app:cornerRadius="8dp" />
 
             <!-- Assign To -->
             <com.google.android.material.textfield.TextInputLayout

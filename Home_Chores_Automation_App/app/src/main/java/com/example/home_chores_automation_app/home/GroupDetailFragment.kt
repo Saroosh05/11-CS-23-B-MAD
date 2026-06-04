@@ -71,6 +71,11 @@ class GroupDetailFragment : Fragment() {
                 findNavController().navigate(R.id.action_groupDetail_to_leaderboard, bundle)
             }
 
+            binding.btnAiInsights.setOnClickListener {
+                val bundle = Bundle().apply { putString("groupId", groupId) }
+                findNavController().navigate(R.id.action_groupDetail_to_aiInsights, bundle)
+            }
+
             if (currentUserId == group.adminId) {
                 binding.btnDeleteGroup.visibility = View.VISIBLE
                 binding.btnDeleteGroup.setOnClickListener {
