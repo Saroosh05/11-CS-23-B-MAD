@@ -16,6 +16,9 @@ import com.example.home_chores_automation_app.data.prefs.SessionManager
 import com.example.home_chores_automation_app.data.repository.FirebaseRepository
 import com.example.home_chores_automation_app.databinding.FragmentHomeBinding
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -82,8 +85,12 @@ class HomeFragment : Fragment() {
         binding.tvDate.text = SimpleDateFormat("EEEE, MMM d, yyyy", Locale.getDefault()).format(Date())
 
         viewLifecycleOwner.lifecycleScope.launch {
-            val user   = repo.getUserById(userId)
-            val groups = repo.getGroupsForUser(userId)
+            // Fetch user, groups and unread count all at once
+            val userDeferred    = async { repo.getUserById(userId) }
+            val groupsDeferred  = async { repo.getGroupsForUser(userId) }
+            val unreadDeferred  = async { repo.getUnreadCount(userId) }
+            val user            = userDeferred.await()
+            val groups          = groupsDeferred.await()
 
             if (_binding == null) return@launch
 
@@ -94,7 +101,10 @@ class HomeFragment : Fragment() {
             val groupWord = if (groups.size == 1) "group" else "groups"
             binding.tvGroupCount.text = "${groups.size} $groupWord"
 
-            val myTasks = groups.flatMap { repo.getTasksForGroup(it.id) }.filter { it.assignedTo == userId }
+            // Fetch tasks for all groups in parallel
+            val myTasks = coroutineScope {
+                groups.map { async { repo.getTasksForGroup(it.id) } }.awaitAll()
+            }.flatten().filter { it.assignedTo == userId }
             binding.tvStatPending.text = myTasks.count { !it.isCompleted }.toString()
             binding.tvStatDone.text    = myTasks.count { it.isCompleted }.toString()
 
@@ -110,7 +120,7 @@ class HomeFragment : Fragment() {
                 }
             }
 
-            val unreadCount = repo.getUnreadCount(userId)
+            val unreadCount = unreadDeferred.await()
             val navView = requireActivity().findViewById<BottomNavigationView>(R.id.bottomNavView)
             if (unreadCount > 0) {
                 val badge = navView?.getOrCreateBadge(R.id.notificationsFragment)

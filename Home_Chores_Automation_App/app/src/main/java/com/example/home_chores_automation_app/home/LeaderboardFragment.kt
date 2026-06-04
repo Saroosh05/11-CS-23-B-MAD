@@ -10,6 +10,9 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.home_chores_automation_app.data.repository.FirebaseRepository
 import com.example.home_chores_automation_app.databinding.FragmentLeaderboardBinding
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 class LeaderboardFragment : Fragment() {
@@ -46,10 +49,15 @@ class LeaderboardFragment : Fragment() {
             binding.tvGroupName.text = group.name
 
             val statsList = repo.getLeaderboardForGroup(groupId, group.memberIds)
-            val entries   = statsList.mapIndexedNotNull { index, stats ->
-                val user = repo.getUserById(stats.userId) ?: return@mapIndexedNotNull null
-                LeaderboardEntry(rank = index + 1, user = user, stats = stats)
-            }
+            // getUserById hits the in-memory cache for members already loaded this session
+            val entries = coroutineScope {
+                statsList.mapIndexed { index, stats ->
+                    async {
+                        val user = repo.getUserById(stats.userId) ?: return@async null
+                        LeaderboardEntry(rank = index + 1, user = user, stats = stats)
+                    }
+                }.awaitAll()
+            }.filterNotNull()
 
             if (entries.isEmpty()) {
                 binding.tvEmpty.visibility      = View.VISIBLE

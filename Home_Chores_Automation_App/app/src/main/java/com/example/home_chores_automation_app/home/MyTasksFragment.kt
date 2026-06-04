@@ -13,6 +13,9 @@ import com.example.home_chores_automation_app.data.model.Task
 import com.example.home_chores_automation_app.data.prefs.SessionManager
 import com.example.home_chores_automation_app.data.repository.FirebaseRepository
 import com.example.home_chores_automation_app.databinding.FragmentMyTasksBinding
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -50,9 +53,12 @@ class MyTasksFragment : Fragment() {
     private fun loadTasks() {
         viewLifecycleOwner.lifecycleScope.launch {
             val groups = repo.getGroupsForUser(userId)
-            val allMyTasks = groups.flatMap { group ->
-                repo.getTasksForGroup(group.id).filter { it.assignedTo == userId }
-            }
+            // Fetch tasks for all groups in parallel
+            val allMyTasks = coroutineScope {
+                groups.map { group ->
+                    async { repo.getTasksForGroup(group.id).filter { it.assignedTo == userId } }
+                }.awaitAll()
+            }.flatten()
 
             if (filter != "done") checkAndNotifyOverdue(allMyTasks.filter { !it.isCompleted }, groups)
 

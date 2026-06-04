@@ -7,6 +7,9 @@ import com.example.home_chores_automation_app.data.model.User
 import com.example.home_chores_automation_app.data.model.UserStats
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 import java.util.Calendar
 import java.util.UUID
@@ -14,6 +17,10 @@ import java.util.UUID
 class FirebaseRepository private constructor() {
 
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()
+
+    // Simple in-memory cache — avoids redundant Firestore reads within a session
+    private val userCache  = HashMap<String, User>()
+    private val groupCache = HashMap<String, Group>()
 
     companion object {
         @Volatile
@@ -29,27 +36,34 @@ class FirebaseRepository private constructor() {
 
     suspend fun createUser(user: User) {
         db.collection("users").document(user.id).set(user).await()
+        userCache[user.id] = user
     }
 
     suspend fun getUserById(id: String): User? {
+        userCache[id]?.let { return it }
         return try {
-            db.collection("users").document(id).get().await().toObject(User::class.java)
+            db.collection("users").document(id).get().await()
+                .toObject(User::class.java)
+                ?.also { userCache[id] = it }
         } catch (e: Exception) { null }
     }
 
     suspend fun updateUser(user: User) {
         db.collection("users").document(user.id).set(user).await()
+        userCache[user.id] = user
     }
 
     suspend fun updateProfilePictureUrl(userId: String, url: String?) {
         db.collection("users").document(userId)
             .update("profilePictureUrl", url).await()
+        userCache.remove(userId)   // invalidate so next read is fresh
     }
 
     // ── GROUPS ───────────────────────────────────────────────────────────────
 
     suspend fun createGroup(group: Group) {
         db.collection("groups").document(group.id).set(group).await()
+        groupCache[group.id] = group
     }
 
     /** Returns groups where userId is in memberIds (admin is always added to memberIds on creation). */
@@ -63,8 +77,11 @@ class FirebaseRepository private constructor() {
     }
 
     suspend fun getGroupById(id: String): Group? {
+        groupCache[id]?.let { return it }
         return try {
-            db.collection("groups").document(id).get().await().toObject(Group::class.java)
+            db.collection("groups").document(id).get().await()
+                .toObject(Group::class.java)
+                ?.also { groupCache[id] = it }
         } catch (e: Exception) { null }
     }
 
@@ -80,10 +97,12 @@ class FirebaseRepository private constructor() {
 
     suspend fun updateGroup(group: Group) {
         db.collection("groups").document(group.id).set(group).await()
+        groupCache[group.id] = group
     }
 
     suspend fun deleteGroup(groupId: String) {
         db.collection("groups").document(groupId).delete().await()
+        groupCache.remove(groupId)
     }
 
     // ── TASKS ────────────────────────────────────────────────────────────────
@@ -335,7 +354,9 @@ class FirebaseRepository private constructor() {
 
     /** Returns all members' stats sorted by points descending (for leaderboard). */
     suspend fun getLeaderboardForGroup(groupId: String, memberIds: List<String>): List<UserStats> =
-        memberIds.map { getUserStats(it, groupId) }.sortedByDescending { it.points }
+        coroutineScope {
+            memberIds.map { uid -> async { getUserStats(uid, groupId) } }.awaitAll()
+        }.sortedByDescending { it.points }
 
     /**
      * Generates a weekly summary notification for the whole group.

@@ -11,6 +11,9 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.home_chores_automation_app.data.prefs.SessionManager
 import com.example.home_chores_automation_app.data.repository.FirebaseRepository
 import com.example.home_chores_automation_app.databinding.FragmentCalendarBinding
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -41,12 +44,17 @@ class CalendarFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             val groups = repo.getGroupsForUser(userId)
-            val allTasks = groups.flatMap { group ->
-                repo.getTasksForGroup(group.id).map { task ->
-                    val assignedName = repo.getUserById(task.assignedTo)?.name ?: "Unassigned"
-                    Triple(task, group.name, assignedName)
-                }
-            }
+            // Fetch tasks for all groups in parallel; getUserById hits cache after first load
+            val allTasks = coroutineScope {
+                groups.map { group ->
+                    async {
+                        repo.getTasksForGroup(group.id).map { task ->
+                            val assignedName = repo.getUserById(task.assignedTo)?.name ?: "Unassigned"
+                            Triple(task, group.name, assignedName)
+                        }
+                    }
+                }.awaitAll()
+            }.flatten()
 
             if (_binding == null) return@launch
 
