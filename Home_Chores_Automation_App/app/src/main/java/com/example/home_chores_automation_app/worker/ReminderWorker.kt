@@ -69,6 +69,14 @@ class ReminderWorker(
             }
         }
 
+        // ── Weekly summary (Mondays only) ───────────────────────────────────
+        val cal = java.util.Calendar.getInstance()
+        if (cal.get(java.util.Calendar.DAY_OF_WEEK) == java.util.Calendar.MONDAY) {
+            for (group in groups) {
+                repo.generateWeeklySummaryIfNeeded(group.id, group.memberIds)
+            }
+        }
+
         return Result.success()
     }
 

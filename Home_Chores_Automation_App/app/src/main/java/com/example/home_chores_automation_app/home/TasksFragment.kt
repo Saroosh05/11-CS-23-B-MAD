@@ -98,10 +98,13 @@ class TasksFragment : Fragment() {
                     onCheckedChange = { task, isChecked ->
                         viewLifecycleOwner.lifecycleScope.launch {
                             repo.updateTask(task)
-                            if (isChecked && task.recurrence != "none") {
-                                view?.post { if (_binding != null) {
-                                    viewLifecycleOwner.lifecycleScope.launch { regenerateRecurringTask(task, group.adminId) }
-                                }}
+                            if (isChecked) {
+                                repo.awardTaskCompletion(task)  // 🏆 award points + badges
+                                if (task.recurrence != "none") {
+                                    view?.post { if (_binding != null) {
+                                        viewLifecycleOwner.lifecycleScope.launch { regenerateRecurringTask(task, group.adminId) }
+                                    }}
+                                }
                             }
                         }
                         updateCountLabel(tasks)
@@ -141,6 +144,7 @@ class TasksFragment : Fragment() {
             val isOverdue = task.dueDate > 0L && task.dueDate < now && !task.isCompleted
             if (isOverdue && task.overdueNotified != true) {
                 repo.markOverdueNotified(task.id)
+                repo.penalizeOverdue(task.assignedTo, task.groupId)  // 📉 deduct points
                 val assigneeName = memberNames[task.assignedTo] ?: "Someone"
                 repo.addNotification(AppNotification(
                     id = UUID.randomUUID().toString(), userId = task.assignedTo,
