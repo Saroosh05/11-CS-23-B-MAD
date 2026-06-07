@@ -1,5 +1,7 @@
 package com.example.home_chores_automation_app.data.model
 
+import com.google.firebase.firestore.PropertyName
+
 data class Task(
     val id: String = "",
     val groupId: String = "",
@@ -7,11 +9,17 @@ data class Task(
     val description: String = "",
     val assignedTo: String = "",
     val createdBy: String = "",
-    val isCompleted: Boolean = false,
+    @get:PropertyName("isCompleted")
+    @set:PropertyName("isCompleted")
+    var isCompleted: Boolean = false,
     val createdAt: Long = 0L,
     val dueDate: Long = 0L,
     val recurrence: String = "none",  // "none", "daily", "weekly", "monthly"
-    val overdueNotified: Boolean = false,
-    val reminderSent: Boolean = false, // true once the pre-due reminder notification is sent
+    @get:PropertyName("overdueNotified")
+    @set:PropertyName("overdueNotified")
+    var overdueNotified: Boolean = false,
+    @get:PropertyName("reminderSent")
+    @set:PropertyName("reminderSent")
+    var reminderSent: Boolean = false,
     val completedAt: Long = 0L
 )

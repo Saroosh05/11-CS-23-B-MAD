@@ -21,6 +21,7 @@ import com.example.home_chores_automation_app.data.prefs.SessionManager
 import com.example.home_chores_automation_app.data.repository.FirebaseRepository
 import com.example.home_chores_automation_app.databinding.FragmentTasksBinding
 import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -68,13 +69,17 @@ class TasksFragment : Fragment() {
         loadTasks()
     }
 
+    private var loadTasksJob: Job? = null
+    private var taskUpdateInProgress = false
+
     override fun onResume() {
         super.onResume()
-        loadTasks()
+        if (!taskUpdateInProgress) loadTasks()
     }
 
     private fun loadTasks() {
-        viewLifecycleOwner.lifecycleScope.launch {
+        loadTasksJob?.cancel()
+        loadTasksJob = viewLifecycleOwner.lifecycleScope.launch {
             val group = repo.getGroupById(groupId) ?: return@launch
             val raw   = repo.getTasksForGroup(groupId)
             if (_binding == null) return@launch
@@ -104,17 +109,22 @@ class TasksFragment : Fragment() {
                     tasks, memberNames, currentUserId, adminId,
                     onCheckedChange = { task, isChecked ->
                         viewLifecycleOwner.lifecycleScope.launch {
-                            repo.updateTask(task)
-                            if (isChecked) {
-                                repo.awardTaskCompletion(task)
-                                if (task.recurrence != "none") {
-                                    view?.post { if (_binding != null) {
-                                        viewLifecycleOwner.lifecycleScope.launch { regenerateRecurringTask(task, adminId) }
-                                    }}
+                            taskUpdateInProgress = true
+                            try {
+                                repo.updateTask(task)
+                                if (isChecked) {
+                                    repo.awardTaskCompletion(task)
+                                    if (task.recurrence != "none") {
+                                        regenerateRecurringTask(task, adminId)
+                                    }
                                 }
+                            } catch (e: Exception) {
+                                // fall through to reload
+                            } finally {
+                                taskUpdateInProgress = false
+                                loadTasks()
                             }
                         }
-                        updateCountLabel(tasks)
                     },
                     onEdit = { task ->
                         val bundle = Bundle().apply {
@@ -194,7 +204,6 @@ class TasksFragment : Fragment() {
                 isRead = false, createdAt = System.currentTimeMillis()
             ))
         }
-        loadTasks()
     }
 
     private fun updateCountLabel(tasks: List<Task>) {
@@ -228,8 +237,16 @@ class TasksFragment : Fragment() {
                         )
                         adapter.updateAt(pos, updated)
                         viewLifecycleOwner.lifecycleScope.launch {
-                            repo.updateTask(updated)
-                            repo.awardTaskCompletion(updated)
+                            taskUpdateInProgress = true
+                            try {
+                                repo.updateTask(updated)
+                                repo.awardTaskCompletion(updated)
+                            } catch (e: Exception) {
+                                // fall through to reload
+                            } finally {
+                                taskUpdateInProgress = false
+                                loadTasks()
+                            }
                         }
                         Snackbar.make(binding.root, "\"${task.title}\" marked done ✓",
                             Snackbar.LENGTH_SHORT).show()

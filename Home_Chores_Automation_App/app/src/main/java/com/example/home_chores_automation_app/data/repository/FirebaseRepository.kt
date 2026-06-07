@@ -5,10 +5,12 @@ import com.example.home_chores_automation_app.data.model.Group
 import com.example.home_chores_automation_app.data.model.Task
 import com.example.home_chores_automation_app.data.model.User
 import com.example.home_chores_automation_app.data.model.UserStats
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.Source
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -209,20 +211,66 @@ class FirebaseRepository private constructor() {
     // ── TASKS ────────────────────────────────────────────────────────────────
 
     suspend fun createTask(task: Task) {
-        db.collection("tasks").document(task.id).set(task).await()
+        db.collection("tasks").document(task.id).set(taskToMap(task)).await()
     }
 
     suspend fun getTasksForGroup(groupId: String): List<Task> {
         return try {
             db.collection("tasks")
                 .whereEqualTo("groupId", groupId)
-                .get().await()
-                .toObjects(Task::class.java)
+                .get(Source.SERVER)
+                .await()
+                .documents
+                .mapNotNull { it.toTask() }
         } catch (e: Exception) { emptyList() }
     }
 
+    /** Firestore toObject() often fails on Kotlin boolean fields like isCompleted — parse explicitly. */
+    private fun DocumentSnapshot.toTask(): Task? {
+        if (!exists()) return null
+        return Task(
+            id              = getString("id") ?: id,
+            groupId         = getString("groupId") ?: "",
+            title           = getString("title") ?: "",
+            description     = getString("description") ?: "",
+            assignedTo      = getString("assignedTo") ?: "",
+            createdBy       = getString("createdBy") ?: "",
+            isCompleted     = readCompletedFlag(),
+            createdAt       = getLong("createdAt") ?: 0L,
+            dueDate         = getLong("dueDate") ?: 0L,
+            recurrence      = getString("recurrence") ?: "none",
+            overdueNotified = getBoolean("overdueNotified") ?: false,
+            reminderSent    = getBoolean("reminderSent") ?: false,
+            completedAt     = getLong("completedAt") ?: 0L
+        )
+    }
+
+    /** Supports both isCompleted (current) and completed (legacy) field names in Firestore. */
+    private fun DocumentSnapshot.readCompletedFlag(): Boolean {
+        if (contains("isCompleted")) return getBoolean("isCompleted") ?: false
+        if (contains("completed")) return getBoolean("completed") ?: false
+        return false
+    }
+
+    private fun taskToMap(task: Task): HashMap<String, Any?> = hashMapOf(
+        "id" to task.id,
+        "groupId" to task.groupId,
+        "title" to task.title,
+        "description" to task.description,
+        "assignedTo" to task.assignedTo,
+        "createdBy" to task.createdBy,
+        "isCompleted" to task.isCompleted,
+        "createdAt" to task.createdAt,
+        "dueDate" to task.dueDate,
+        "recurrence" to (task.recurrence ?: "none"),
+        "overdueNotified" to task.overdueNotified,
+        "reminderSent" to task.reminderSent,
+        "completedAt" to task.completedAt
+    )
+
     suspend fun updateTask(task: Task) {
-        db.collection("tasks").document(task.id).set(task).await()
+        // Full document replace — always writes isCompleted and drops legacy "completed" field
+        db.collection("tasks").document(task.id).set(taskToMap(task)).await()
     }
 
     suspend fun markOverdueNotified(taskId: String) {

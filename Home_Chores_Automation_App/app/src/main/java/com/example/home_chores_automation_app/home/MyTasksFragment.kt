@@ -93,10 +93,36 @@ class MyTasksFragment : Fragment() {
             binding.rvMyTasks.adapter = TaskAdapter(
                 tasks = filtered, memberNames = memberNames,
                 currentUserId = userId, adminId = "",
-                onCheckedChange = { task, _ ->
+                onCheckedChange = { task, isChecked ->
                     viewLifecycleOwner.lifecycleScope.launch {
-                        repo.updateTask(task)
-                        view?.post { if (_binding != null) loadTasks() }
+                        try {
+                            repo.updateTask(task)
+                            if (isChecked) {
+                                repo.awardTaskCompletion(task)
+                                if (_binding == null) return@launch
+                                val adapter = binding.rvMyTasks.adapter as? TaskAdapter
+                                if (filter == "pending" && adapter != null) {
+                                    val idx = adapter.getTasks().indexOfFirst { it.id == task.id }
+                                    if (idx >= 0) {
+                                        adapter.removeAt(idx)
+                                        val remaining = adapter.itemCount
+                                        binding.tvSubtitle.text =
+                                            "$remaining task${if (remaining == 1) "" else "s"}"
+                                        if (remaining == 0) {
+                                            binding.rvMyTasks.visibility = View.GONE
+                                            binding.layoutEmpty.visibility = View.VISIBLE
+                                            binding.tvEmptyMessage.text = "All Caught Up!"
+                                            binding.tvEmptyHint.text =
+                                                "You have no pending tasks right now"
+                                        }
+                                    }
+                                }
+                            } else if (filter == "done") {
+                                loadTasks()
+                            }
+                        } catch (e: Exception) {
+                            loadTasks()
+                        }
                     }
                 },
                 onEdit   = {},

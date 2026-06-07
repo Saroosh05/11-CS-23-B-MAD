@@ -53,6 +53,12 @@ class HomeFragment : Fragment() {
             findNavController().navigate(R.id.action_home_to_joinGroup)
         }
 
+        binding.cardStatGroups.setOnClickListener {
+            binding.nestedScrollView.post {
+                binding.nestedScrollView.smoothScrollTo(0, binding.sectionMyGroups.top)
+            }
+        }
+
         binding.cardStatPending.setOnClickListener {
             val bundle = Bundle().apply { putString("filter", "pending") }
             findNavController().navigate(R.id.action_home_to_myTasks, bundle)

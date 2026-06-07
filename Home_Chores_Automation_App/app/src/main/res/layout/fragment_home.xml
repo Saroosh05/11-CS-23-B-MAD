@@ -93,6 +93,7 @@
 
     <!-- ── DASHBOARD BODY ──────────────────────────────────────── -->
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/nestedScrollView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
@@ -121,10 +122,13 @@
 
                 <!-- Groups -->
                 <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardStatGroups"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:layout_marginEnd="6dp"
+                    android:clickable="true"
+                    android:focusable="true"
                     app:cardCornerRadius="16dp"
                     app:cardElevation="0dp"
                     app:cardBackgroundColor="#E0F2F1">
@@ -359,6 +363,7 @@
             <!-- Row 2 -->
             <!-- ── MY GROUPS ──────────────────────────────────── -->
             <LinearLayout
+                android:id="@+id/sectionMyGroups"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
