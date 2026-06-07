@@ -71,10 +71,14 @@ class TasksFragment : Fragment() {
 
     private var loadTasksJob: Job? = null
     private var taskUpdateInProgress = false
+    private var tasksAdapter: TaskAdapter? = null
+    private var swipeHelperAttached = false
+    private var activeDeleteSnackbar: Snackbar? = null
+    private var groupAdminId: String = ""
 
     override fun onResume() {
         super.onResume()
-        if (!taskUpdateInProgress) loadTasks()
+        if (!taskUpdateInProgress && activeDeleteSnackbar == null) loadTasks()
     }
 
     private fun loadTasks() {
@@ -94,29 +98,36 @@ class TasksFragment : Fragment() {
             val tasks = raw.sortedWith(
                 compareByDescending<Task> { it.dueDate > 0L && it.dueDate < now && !it.isCompleted }
                     .thenBy { if (it.dueDate > 0L) it.dueDate else Long.MAX_VALUE }
-            ).toMutableList()
+            )
 
             updateCountLabel(tasks)
 
             if (tasks.isEmpty()) {
-                binding.rvTasks.visibility   = View.GONE
+                binding.rvTasks.visibility = View.GONE
                 binding.layoutEmpty.visibility = View.VISIBLE
+                tasksAdapter?.replaceAll(emptyList())
+                return@launch
+            }
+
+            binding.rvTasks.visibility = View.VISIBLE
+            binding.layoutEmpty.visibility = View.GONE
+            val adminId = group.adminId
+            groupAdminId = adminId
+
+            val existing = tasksAdapter
+            if (existing != null) {
+                existing.replaceAll(tasks)
             } else {
-                binding.rvTasks.visibility   = View.VISIBLE
-                binding.layoutEmpty.visibility = View.GONE
-                val adminId = group.adminId
-                val taskAdapter = TaskAdapter(
-                    tasks, memberNames, currentUserId, adminId,
-                    onCheckedChange = { task, isChecked ->
+                tasksAdapter = TaskAdapter(
+                    tasks.toMutableList(), memberNames, currentUserId, adminId,
+                    onCheckedChange = { previous, updated, isChecked ->
                         viewLifecycleOwner.lifecycleScope.launch {
                             taskUpdateInProgress = true
                             try {
-                                repo.updateTask(task)
-                                if (isChecked) {
-                                    repo.awardTaskCompletion(task)
-                                    if (task.recurrence != "none") {
-                                        regenerateRecurringTask(task, adminId)
-                                    }
+                                val saved = repo.handleTaskCompletionChange(previous, updated)
+                                repo.updateTask(saved)
+                                if (saved.isCompleted && saved.recurrence != "none") {
+                                    regenerateRecurringTask(saved, adminId)
                                 }
                             } catch (e: Exception) {
                                 // fall through to reload
@@ -147,8 +158,8 @@ class TasksFragment : Fragment() {
                             .show()
                     }
                 )
-                binding.rvTasks.adapter = taskAdapter
-                setupSwipeGestures(taskAdapter)
+                binding.rvTasks.adapter = tasksAdapter
+                attachSwipeHelperOnce()
             }
         }
     }
@@ -183,24 +194,27 @@ class TasksFragment : Fragment() {
     }
 
     private suspend fun regenerateRecurringTask(completedTask: Task, adminId: String) {
-        // Use round-robin rotation: next person in the group's member list
-        val group        = repo.getGroupById(completedTask.groupId) ?: return
-        val nextAssignee = repo.getNextAssigneeByRotation(group)
-        val newTask      = repo.buildRecurringTask(completedTask, nextAssignee)
+        val group = repo.getGroupById(completedTask.groupId) ?: return
+        val nextAssignee = repo.getNextAssigneeByWorkload(
+            group.id,
+            group.memberIds,
+            excludeUserId = completedTask.assignedTo
+        ).ifEmpty { completedTask.assignedTo }
+        val newTask = repo.buildRecurringTask(completedTask, nextAssignee)
         repo.createTask(newTask)
 
         val assigneeName = repo.getUserById(newTask.assignedTo)?.name ?: "Someone"
         repo.addNotification(AppNotification(
             id = UUID.randomUUID().toString(), userId = newTask.assignedTo,
-            title = "Recurring Task — Your Turn",
-            message = "It's your turn: \"${newTask.title}\" has been auto-assigned to you.",
+            title = "Recurring Task Assigned",
+            message = "Your turn: \"${newTask.title}\" has been assigned to you.",
             isRead = false, createdAt = System.currentTimeMillis()
         ))
         if (newTask.assignedTo != adminId) {
             repo.addNotification(AppNotification(
                 id = UUID.randomUUID().toString(), userId = adminId,
-                title = "Recurring Task Rotated",
-                message = "\"${newTask.title}\" auto-assigned to $assigneeName (rotation).",
+                title = "Recurring Task Reassigned",
+                message = "\"${newTask.title}\" auto-assigned to $assigneeName.",
                 isRead = false, createdAt = System.currentTimeMillis()
             ))
         }
@@ -211,11 +225,10 @@ class TasksFragment : Fragment() {
         binding.tvTaskCount.text = "$completed of ${tasks.size} completed"
     }
 
-    // ── Swipe gestures ────────────────────────────────────────────────────────
-    // Swipe RIGHT → mark task complete (green)
-    // Swipe LEFT  → delete task with Snackbar undo (red)
+    private fun attachSwipeHelperOnce() {
+        if (swipeHelperAttached) return
+        swipeHelperAttached = true
 
-    private fun setupSwipeGestures(adapter: TaskAdapter) {
         val callback = object : ItemTouchHelper.SimpleCallback(
             0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT
         ) {
@@ -223,13 +236,19 @@ class TasksFragment : Fragment() {
                                 target: RecyclerView.ViewHolder) = false
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
-                val pos  = viewHolder.bindingAdapterPosition
+                val pos = viewHolder.bindingAdapterPosition
                 if (pos == RecyclerView.NO_POSITION) return
 
+                val adapter = tasksAdapter
+                if (adapter == null) {
+                    if (pos != RecyclerView.NO_POSITION) {
+                        viewHolder.itemView.post { binding.rvTasks.adapter?.notifyItemChanged(pos) }
+                    }
+                    return
+                }
+
                 if (direction == ItemTouchHelper.RIGHT) {
-                    // Mark complete
-                    val tasks = adapter.getTasks()
-                    val task  = tasks[pos]
+                    val task = adapter.getTasks().getOrNull(pos) ?: return
                     if (!task.isCompleted) {
                         val updated = task.copy(
                             isCompleted = true,
@@ -239,8 +258,11 @@ class TasksFragment : Fragment() {
                         viewLifecycleOwner.lifecycleScope.launch {
                             taskUpdateInProgress = true
                             try {
-                                repo.updateTask(updated)
-                                repo.awardTaskCompletion(updated)
+                                val saved = repo.handleTaskCompletionChange(task, updated)
+                                repo.updateTask(saved)
+                                if (saved.recurrence != "none") {
+                                    regenerateRecurringTask(saved, groupAdminId)
+                                }
                             } catch (e: Exception) {
                                 // fall through to reload
                             } finally {
@@ -251,14 +273,21 @@ class TasksFragment : Fragment() {
                         Snackbar.make(binding.root, "\"${task.title}\" marked done ✓",
                             Snackbar.LENGTH_SHORT).show()
                     } else {
-                        adapter.notifyItemChanged(pos)   // snap back
+                        adapter.notifyItemChanged(pos)
                     }
                 } else {
-                    // Delete with undo
+                    activeDeleteSnackbar?.dismiss()
                     val task = adapter.removeAt(pos)
-                    val snack = Snackbar.make(binding.root,
-                        "\"${task.title}\" deleted", Snackbar.LENGTH_LONG)
-                        .setAction("Undo") { adapter.insertAt(pos, task) }
+                    updateCountLabel(adapter.getTasks())
+                    val snack = Snackbar.make(
+                        binding.root,
+                        "\"${task.title}\" deleted",
+                        Snackbar.LENGTH_LONG
+                    ).setAction("Undo") {
+                        adapter.insertAt(pos, task)
+                        updateCountLabel(adapter.getTasks())
+                        activeDeleteSnackbar = null
+                    }
                     snack.addCallback(object : Snackbar.Callback() {
                         override fun onDismissed(bar: Snackbar, event: Int) {
                             if (event != DISMISS_EVENT_ACTION) {
@@ -266,8 +295,10 @@ class TasksFragment : Fragment() {
                                     repo.deleteTask(task.id)
                                 }
                             }
+                            if (activeDeleteSnackbar === bar) activeDeleteSnackbar = null
                         }
                     })
+                    activeDeleteSnackbar = snack
                     snack.show()
                 }
             }
@@ -299,6 +330,10 @@ class TasksFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        activeDeleteSnackbar?.dismiss()
+        activeDeleteSnackbar = null
+        swipeHelperAttached = false
+        tasksAdapter = null
         super.onDestroyView()
         _binding = null
     }

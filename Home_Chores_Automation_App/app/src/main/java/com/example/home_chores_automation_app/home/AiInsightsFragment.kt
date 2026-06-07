@@ -143,8 +143,9 @@ class AiInsightsFragment : Fragment() {
                 binding.tvAssignmentSuggestion.text = "🤖  $suggestion"
             } catch (e: Exception) {
                 if (_binding == null) return@launch
-                binding.tvAssignmentSuggestion.text = "Could not reach AI — check your API key or internet connection."
-                Toast.makeText(requireContext(), "AI error: ${e.message}", Toast.LENGTH_LONG).show()
+                val message = GeminiRepository.friendlyMessage(e)
+                binding.tvAssignmentSuggestion.text = message
+                Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
             } finally {
                 if (_binding != null) binding.btnRefreshAssignment.isEnabled = true
             }

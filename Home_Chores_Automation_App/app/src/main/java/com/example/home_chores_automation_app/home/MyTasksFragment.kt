@@ -93,16 +93,19 @@ class MyTasksFragment : Fragment() {
             binding.rvMyTasks.adapter = TaskAdapter(
                 tasks = filtered, memberNames = memberNames,
                 currentUserId = userId, adminId = "",
-                onCheckedChange = { task, isChecked ->
+                onCheckedChange = { previous, updated, isChecked ->
                     viewLifecycleOwner.lifecycleScope.launch {
                         try {
-                            repo.updateTask(task)
-                            if (isChecked) {
-                                repo.awardTaskCompletion(task)
+                            val saved = repo.handleTaskCompletionChange(previous, updated)
+                            repo.updateTask(saved)
+                            if (saved.isCompleted) {
+                                if (saved.recurrence != "none") {
+                                    regenerateRecurringTask(saved)
+                                }
                                 if (_binding == null) return@launch
                                 val adapter = binding.rvMyTasks.adapter as? TaskAdapter
                                 if (filter == "pending" && adapter != null) {
-                                    val idx = adapter.getTasks().indexOfFirst { it.id == task.id }
+                                    val idx = adapter.getTasks().indexOfFirst { it.id == saved.id }
                                     if (idx >= 0) {
                                         adapter.removeAt(idx)
                                         val remaining = adapter.itemCount
@@ -131,6 +134,34 @@ class MyTasksFragment : Fragment() {
         }
     }
 
+    private suspend fun regenerateRecurringTask(completedTask: Task) {
+        val group = repo.getGroupById(completedTask.groupId) ?: return
+        val nextAssignee = repo.getNextAssigneeByWorkload(
+            group.id,
+            group.memberIds,
+            excludeUserId = completedTask.assignedTo
+        ).ifEmpty { completedTask.assignedTo }
+        val newTask = repo.buildRecurringTask(completedTask, nextAssignee)
+        repo.createTask(newTask)
+
+        val assigneeName = repo.getUserById(newTask.assignedTo)?.name ?: "Someone"
+        repo.addNotification(AppNotification(
+            id = UUID.randomUUID().toString(), userId = newTask.assignedTo,
+            title = "Recurring Task Assigned",
+            message = "Your turn: \"${newTask.title}\" has been assigned to you.",
+            isRead = false, createdAt = System.currentTimeMillis()
+        ))
+        val adminId = group.adminId
+        if (newTask.assignedTo != adminId) {
+            repo.addNotification(AppNotification(
+                id = UUID.randomUUID().toString(), userId = adminId,
+                title = "Recurring Task Reassigned",
+                message = "\"${newTask.title}\" auto-assigned to $assigneeName.",
+                isRead = false, createdAt = System.currentTimeMillis()
+            ))
+        }
+    }
+
     private suspend fun checkAndNotifyOverdue(
         tasks: List<Task>,
         groups: List<com.example.home_chores_automation_app.data.model.Group>
@@ -141,6 +172,7 @@ class MyTasksFragment : Fragment() {
             val isOverdue = task.dueDate > 0L && task.dueDate < now
             if (isOverdue && task.overdueNotified != true) {
                 repo.markOverdueNotified(task.id)
+                repo.penalizeOverdue(task.assignedTo, task.groupId)
                 val adminId      = groupMap[task.groupId]?.adminId ?: ""
                 val assigneeName = repo.getUserById(task.assignedTo)?.name ?: "Someone"
                 repo.addNotification(AppNotification(

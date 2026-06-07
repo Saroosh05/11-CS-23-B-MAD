@@ -1,8 +1,10 @@
 package com.example.home_chores_automation_app.data.repository
 
+import com.example.home_chores_automation_app.BuildConfig
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -11,19 +13,24 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
 
 /**
- * All calls to the Gemini 2.0 Flash API go through here.
+ * All calls to the Google Gemini API go through here.
  *
- * IMPORTANT — before running the app, paste your Gemini API key below.
- * Get one for free at: https://aistudio.google.com/app/apikey
+ * Add your key to local.properties (project root, not committed to git):
+ *   GEMINI_API_KEY=your_key_here
+ *
+ * Get a free key at: https://aistudio.google.com/app/apikey
+ * Then rebuild the app.
  */
 class GeminiRepository private constructor() {
 
-    // ── Replace this with your actual Gemini API key ─────────────────────────
-    private val apiKey = "YOUR_GEMINI_API_KEY"
-    // ─────────────────────────────────────────────────────────────────────────
+    private val apiKey = BuildConfig.GEMINI_API_KEY.trim()
 
-    private val model   = "gemini-2.0-flash"
-    private val baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
+    // 2.5-flash first — separate quota bucket; 2.0 models may be exhausted on free tier
+    private val models = listOf(
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-lite"
+    )
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -32,17 +39,44 @@ class GeminiRepository private constructor() {
 
     private val gson = Gson()
 
+    class GeminiApiException(val statusCode: Int, message: String) : Exception(message)
+
     companion object {
         @Volatile private var INSTANCE: GeminiRepository? = null
         fun getInstance(): GeminiRepository =
             INSTANCE ?: synchronized(this) { INSTANCE ?: GeminiRepository().also { INSTANCE = it } }
+
+        fun isConfigured(): Boolean {
+            val key = BuildConfig.GEMINI_API_KEY.trim()
+            return key.isNotEmpty() &&
+                !key.equals("YOUR_GEMINI_API_KEY", ignoreCase = true)
+        }
+
+        fun friendlyMessage(error: Throwable): String {
+            if (error is GeminiApiException) {
+                return when (error.statusCode) {
+                    429 -> "AI quota limit reached for this model. Wait a minute and try again, or create a new API key from a different Google account at aistudio.google.com/app/apikey"
+                    400, 401, 403 -> "Invalid Gemini API key. Check GEMINI_API_KEY in local.properties and rebuild."
+                    else -> error.message ?: "AI request failed."
+                }
+            }
+            if (error is IllegalStateException) return error.message ?: "Gemini API key is not set."
+            return error.message ?: "AI request failed."
+        }
     }
 
-    /**
-     * Sends a single text prompt and returns Gemini's response string.
-     * Throws an exception on network failure or non-200 HTTP status.
-     */
-    private suspend fun prompt(text: String): String = withContext(Dispatchers.IO) {
+    private fun ensureApiKey() {
+        if (!isConfigured()) {
+            throw IllegalStateException(
+                "Gemini API key is missing. Add GEMINI_API_KEY=your_key to local.properties and rebuild."
+            )
+        }
+    }
+
+    private fun apiUrl(model: String): String =
+        "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
+
+    private fun executePrompt(model: String, text: String): String {
         val body = """
             {
               "contents": [{ "parts": [{ "text": ${gson.toJson(text)} }] }],
@@ -51,32 +85,53 @@ class GeminiRepository private constructor() {
         """.trimIndent()
 
         val request = Request.Builder()
-            .url(baseUrl)
+            .url(apiUrl(model))
             .post(body.toRequestBody("application/json".toMediaType()))
             .build()
 
         val response = client.newCall(request).execute()
-        val raw = response.body?.string() ?: throw Exception("Empty response from Gemini")
-        if (!response.isSuccessful) throw Exception("Gemini API error ${response.code}: $raw")
+        val raw = response.body?.string() ?: throw GeminiApiException(0, "Empty response from Gemini")
+        if (!response.isSuccessful) {
+            throw GeminiApiException(response.code, "Gemini API error ${response.code}: $raw")
+        }
 
-        // Parse: candidates[0].content.parts[0].text
-        val root      = gson.fromJson(raw, JsonObject::class.java)
+        val root = gson.fromJson(raw, JsonObject::class.java)
         val candidate = root.getAsJsonArray("candidates")
             ?.get(0)?.asJsonObject
-            ?: throw Exception("No candidates in response")
-        candidate.getAsJsonObject("content")
+            ?: throw GeminiApiException(0, "No candidates in response")
+        return candidate.getAsJsonObject("content")
             ?.getAsJsonArray("parts")
             ?.get(0)?.asJsonObject
             ?.get("text")?.asString
-            ?: throw Exception("Could not parse Gemini text")
+            ?: throw GeminiApiException(0, "Could not parse Gemini text")
     }
 
-    // ── Feature 1: Chore Suggestions ─────────────────────────────────────────
-
     /**
-     * Returns a list of 6 common chore titles for the given group type
-     * (e.g. "Home", "Hostel", "Office").
+     * Sends a prompt with automatic retry on rate limits (429) and model fallback.
      */
+    private suspend fun prompt(text: String): String = withContext(Dispatchers.IO) {
+        ensureApiKey()
+
+        var lastError: Exception? = null
+        for (model in models) {
+            repeat(3) { attempt ->
+                try {
+                    return@withContext executePrompt(model, text)
+                } catch (e: GeminiApiException) {
+                    lastError = e
+                    if (e.statusCode == 429 && attempt < 2) {
+                        delay(3000L * (attempt + 1))
+                    } else {
+                        break
+                    }
+                } catch (e: Exception) {
+                    throw e
+                }
+            }
+        }
+        throw lastError ?: GeminiApiException(0, "Gemini request failed")
+    }
+
     suspend fun suggestChores(groupType: String): List<String> {
         val raw = prompt(
             "List exactly 6 common household chore task titles for a '$groupType' group. " +
@@ -86,7 +141,6 @@ class GeminiRepository private constructor() {
         return raw.lines()
             .mapNotNull { line ->
                 val trimmed = line.trim()
-                // Strip leading "1. " "2. " "- " "* " etc.
                 val cleaned = trimmed.replace(Regex("^[0-9]+[.)\\s]+|^[-*]\\s*"), "").trim()
                 cleaned.ifEmpty { null }
             }
@@ -94,12 +148,6 @@ class GeminiRepository private constructor() {
             .take(6)
     }
 
-    // ── Feature 2: Smart Task Description ────────────────────────────────────
-
-    /**
-     * Takes a short task title and returns a 2-3 sentence description
-     * explaining what the task involves and how to do it.
-     */
     suspend fun expandTaskDescription(title: String): String {
         return prompt(
             "Write a short, practical 2-3 sentence description for a household chore task called " +
@@ -108,12 +156,6 @@ class GeminiRepository private constructor() {
         ).trim()
     }
 
-    // ── Feature 3: Fair Assignment Suggestion ────────────────────────────────
-
-    /**
-     * Given completion rate stats per member, returns the name of who Gemini
-     * recommends assigning next, with a one-line reason.
-     */
     suspend fun suggestFairAssignment(
         taskTitle: String,
         memberStats: List<MemberStat>

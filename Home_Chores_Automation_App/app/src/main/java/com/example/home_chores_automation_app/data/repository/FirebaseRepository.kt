@@ -1,20 +1,27 @@
 package com.example.home_chores_automation_app.data.repository
 
+import android.content.ContentResolver
+import android.net.Uri
 import com.example.home_chores_automation_app.data.model.AppNotification
 import com.example.home_chores_automation_app.data.model.Group
 import com.example.home_chores_automation_app.data.model.Task
 import com.example.home_chores_automation_app.data.model.User
 import com.example.home_chores_automation_app.data.model.UserStats
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.Source
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageMetadata
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
+import java.io.IOException
 import java.util.Calendar
 import java.util.UUID
 
@@ -69,8 +76,47 @@ class FirebaseRepository private constructor() {
 
     suspend fun updateProfilePictureUrl(userId: String, url: String?) {
         db.collection("users").document(userId)
-            .update("profilePictureUrl", url).await()
-        userCache.remove(userId)   // invalidate so next read is fresh
+            .set(mapOf("profilePictureUrl" to url), SetOptions.merge())
+            .await()
+        userCache.remove(userId)
+    }
+
+    /**
+     * Uploads an image to Firebase Storage and saves the download URL on the user profile.
+     * @throws IllegalStateException if the user is not signed in
+     * @throws IOException if the image cannot be read from the device
+     */
+    suspend fun uploadProfilePicture(
+        contentResolver: ContentResolver,
+        uri: Uri,
+        userId: String
+    ): String {
+        val authUser = FirebaseAuth.getInstance().currentUser
+            ?: throw IllegalStateException("Not signed in")
+        if (authUser.uid != userId) throw IllegalStateException("Session mismatch")
+
+        val mimeType = contentResolver.getType(uri) ?: "image/jpeg"
+        val ext = when {
+            mimeType.contains("png", ignoreCase = true) -> "png"
+            mimeType.contains("webp", ignoreCase = true) -> "webp"
+            else -> "jpg"
+        }
+
+        val storageRef = FirebaseStorage.getInstance()
+            .reference
+            .child("profile_pictures/$userId/${UUID.randomUUID()}.$ext")
+
+        val stream = contentResolver.openInputStream(uri)
+            ?: throw IOException("Could not read selected image")
+
+        stream.use {
+            val metadata = StorageMetadata.Builder().setContentType(mimeType).build()
+            storageRef.putStream(it, metadata).await()
+        }
+
+        val downloadUrl = storageRef.downloadUrl.await().toString()
+        updateProfilePictureUrl(userId, downloadUrl)
+        return downloadUrl
     }
 
     // ── GROUPS ───────────────────────────────────────────────────────────────
@@ -241,7 +287,8 @@ class FirebaseRepository private constructor() {
             recurrence      = getString("recurrence") ?: "none",
             overdueNotified = getBoolean("overdueNotified") ?: false,
             reminderSent    = getBoolean("reminderSent") ?: false,
-            completedAt     = getLong("completedAt") ?: 0L
+            completedAt     = getLong("completedAt") ?: 0L,
+            pointsAwarded   = getLong("pointsAwarded")?.toInt() ?: 0
         )
     }
 
@@ -265,7 +312,8 @@ class FirebaseRepository private constructor() {
         "recurrence" to (task.recurrence ?: "none"),
         "overdueNotified" to task.overdueNotified,
         "reminderSent" to task.reminderSent,
-        "completedAt" to task.completedAt
+        "completedAt" to task.completedAt,
+        "pointsAwarded" to task.pointsAwarded
     )
 
     suspend fun updateTask(task: Task) {
@@ -314,7 +362,8 @@ class FirebaseRepository private constructor() {
             dueDate         = getNextDeadline(completedTask),
             overdueNotified = false,
             reminderSent    = false,
-            completedAt     = 0L
+            completedAt     = 0L,
+            pointsAwarded   = 0
         )
     }
 
@@ -322,26 +371,58 @@ class FirebaseRepository private constructor() {
      * Round-robin rotation: returns the next member in the group's rotation order
      * and advances the rotationIndex counter in Firestore.
      */
-    suspend fun getNextAssigneeByRotation(group: Group): String {
+    suspend fun getNextAssigneeByRotation(groupId: String): String {
+        val groupRef = db.collection("groups").document(groupId)
+        val group = groupRef.get().await().toObject(Group::class.java) ?: return ""
         val members = group.memberIds
         if (members.isEmpty()) return ""
         val idx = group.rotationIndex % members.size
-        db.collection("groups").document(group.id)
-            .update("rotationIndex", group.rotationIndex + 1).await()
-        return members[idx]
+        val next = members[idx]
+        groupRef.update("rotationIndex", FieldValue.increment(1)).await()
+        groupCache.remove(groupId)
+        return next
     }
 
     /**
-     * Workload balancing: returns the member userId who has the fewest incomplete tasks,
-     * so new tasks are spread evenly across the team.
+     * Workload balancing: returns the member with the fewest incomplete tasks.
+     * For recurring chores, pass excludeUserId (who just finished) so the next turn
+     * goes to someone else; ties are broken with round-robin (rotationIndex).
      */
-    suspend fun getNextAssigneeByWorkload(groupId: String, memberIds: List<String>): String {
+    suspend fun getNextAssigneeByWorkload(
+        groupId: String,
+        memberIds: List<String>,
+        excludeUserId: String? = null
+    ): String {
         if (memberIds.isEmpty()) return ""
         val tasks = getTasksForGroup(groupId)
         val pendingCount = memberIds.associateWith { uid ->
             tasks.count { it.assignedTo == uid && !it.isCompleted }
         }
-        return pendingCount.minByOrNull { it.value }?.key ?: memberIds.first()
+        val pool = if (excludeUserId != null) {
+            val others = pendingCount.filterKeys { it != excludeUserId }
+            if (others.isNotEmpty()) others else pendingCount
+        } else {
+            pendingCount
+        }
+        val minPending = pool.values.minOrNull() ?: 0
+        val tied = pool.filter { it.value == minPending }.keys.sorted()
+        if (tied.isEmpty()) return memberIds.first()
+        if (tied.size == 1) return tied.first()
+        return pickByRotation(groupId, tied)
+    }
+
+    /** Round-robin pick among candidates; advances rotationIndex in Firestore. */
+    private suspend fun pickByRotation(groupId: String, candidates: List<String>): String {
+        if (candidates.isEmpty()) return ""
+        if (candidates.size == 1) return candidates.first()
+        val groupRef = db.collection("groups").document(groupId)
+        val group = groupRef.get(Source.SERVER).await().toObject(Group::class.java)
+            ?: return candidates.first()
+        val idx = (group.rotationIndex % candidates.size).coerceAtLeast(0)
+        val chosen = candidates[idx]
+        groupRef.update("rotationIndex", FieldValue.increment(1)).await()
+        groupCache.remove(groupId)
+        return chosen
     }
 
     /**
@@ -404,7 +485,44 @@ class FirebaseRepository private constructor() {
 
     // ── GAMIFICATION ─────────────────────────────────────────────────────────
 
+    private val fastCompletionWindowMs = 30 * 60 * 1000L
+
     private fun statsDocId(userId: String, groupId: String) = "${groupId}_${userId}"
+
+    /**
+     * Points rules:
+     * - Completed within 30 minutes of assignment: +10
+     * - Completed later (but before due date, or no due date): +5
+     * - Completed after due date: +2
+     */
+    fun calculateCompletionPoints(task: Task, completedAt: Long): Int {
+        if (task.dueDate > 0L && completedAt > task.dueDate) return 2
+        if (task.createdAt <= 0L) return 5
+        val elapsedMs = completedAt - task.createdAt
+        return if (elapsedMs <= fastCompletionWindowMs) 10 else 5
+    }
+
+    /**
+     * Apply or reverse points when a task is checked/unchecked.
+     * Returns the task document that should be saved (includes pointsAwarded).
+     */
+    suspend fun handleTaskCompletionChange(previous: Task, updated: Task): Task {
+        return when {
+            !previous.isCompleted && updated.isCompleted -> {
+                val completedAt = updated.completedAt.takeIf { it > 0L }
+                    ?: System.currentTimeMillis()
+                val taskWithTime = updated.copy(completedAt = completedAt)
+                val points = calculateCompletionPoints(taskWithTime, completedAt)
+                awardTaskCompletion(taskWithTime, points)
+                taskWithTime.copy(pointsAwarded = points)
+            }
+            previous.isCompleted && !updated.isCompleted -> {
+                revokeTaskCompletion(previous)
+                updated.copy(pointsAwarded = 0, completedAt = 0L)
+            }
+            else -> updated
+        }
+    }
 
     suspend fun getUserStats(userId: String, groupId: String): UserStats {
         return try {
@@ -426,23 +544,16 @@ class FirebaseRepository private constructor() {
 
     /**
      * Called when a task is marked complete.
-     * Awards +10 pts (on-time), +5 pts (no deadline), +3 pts (late but done).
      * Updates streak, consecutive on-time counter, and checks for new badges.
      */
-    suspend fun awardTaskCompletion(task: Task) {
+    suspend fun awardTaskCompletion(task: Task, pointsEarned: Int) {
         if (task.assignedTo.isEmpty() || task.groupId.isEmpty()) return
-        val stats      = getUserStats(task.assignedTo, task.groupId)
-        val now        = System.currentTimeMillis()
+        val stats       = getUserStats(task.assignedTo, task.groupId)
+        val now         = System.currentTimeMillis()
         val completedAt = if (task.completedAt > 0L) task.completedAt else now
-        val onTime     = task.dueDate > 0L && completedAt <= task.dueDate
-        val pointsEarned = when {
-            onTime          -> 10
-            task.dueDate == 0L -> 5   // no deadline — still reward completion
-            else            ->  3   // completed late
-        }
-        val newConsecutive = if (onTime) stats.consecutiveOnTime + 1 else 0
+        val onTime      = task.dueDate == 0L || completedAt <= task.dueDate
+        val newConsecutive = if (onTime && task.dueDate > 0L) stats.consecutiveOnTime + 1 else 0
 
-        // Extend day-streak if last completion was today or yesterday
         val todayStart     = getDayStart(now)
         val lastDayStart   = if (stats.lastCompletionDate > 0L) getDayStart(stats.lastCompletionDate) else 0L
         val yesterdayStart = todayStart - 86_400_000L
@@ -455,12 +566,34 @@ class FirebaseRepository private constructor() {
 
         val updated = checkAndAwardBadges(
             stats.copy(
-                points            = stats.points + pointsEarned,
-                totalCompleted    = stats.totalCompleted + 1,
-                totalOnTime       = if (onTime) stats.totalOnTime + 1 else stats.totalOnTime,
-                consecutiveOnTime = newConsecutive,
-                streakDays        = newStreak,
+                points             = stats.points + pointsEarned,
+                totalCompleted     = stats.totalCompleted + 1,
+                totalOnTime        = if (onTime && task.dueDate > 0L) stats.totalOnTime + 1 else stats.totalOnTime,
+                consecutiveOnTime  = newConsecutive,
+                streakDays         = newStreak,
                 lastCompletionDate = now
+            )
+        )
+        updateUserStats(updated)
+    }
+
+    /** Removes points and completion stats when a task is unchecked. */
+    suspend fun revokeTaskCompletion(task: Task) {
+        if (task.assignedTo.isEmpty() || task.groupId.isEmpty()) return
+        val completedAt = task.completedAt.takeIf { it > 0L } ?: return
+        val pointsToRevoke = if (task.pointsAwarded > 0) {
+            task.pointsAwarded
+        } else {
+            calculateCompletionPoints(task, completedAt)
+        }
+        val stats  = getUserStats(task.assignedTo, task.groupId)
+        val onTime = task.dueDate > 0L && completedAt <= task.dueDate
+        val updated = checkAndAwardBadges(
+            stats.copy(
+                points            = maxOf(0, stats.points - pointsToRevoke),
+                totalCompleted    = maxOf(0, stats.totalCompleted - 1),
+                totalOnTime       = if (onTime) maxOf(0, stats.totalOnTime - 1) else stats.totalOnTime,
+                consecutiveOnTime = if (onTime) maxOf(0, stats.consecutiveOnTime - 1) else 0
             )
         )
         updateUserStats(updated)

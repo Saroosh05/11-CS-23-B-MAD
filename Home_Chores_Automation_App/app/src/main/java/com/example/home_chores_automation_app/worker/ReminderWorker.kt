@@ -65,6 +65,7 @@ class ReminderWorker(
                         message = "Was due $dateStr — ${group.name}"
                     )
                     repo.markOverdueNotified(task.id)
+                    repo.penalizeOverdue(task.assignedTo, task.groupId)
                 }
             }
         }

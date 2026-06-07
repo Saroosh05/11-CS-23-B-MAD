@@ -1,0 +1,15 @@
+# Local machine config (SDK path, API keys — never commit)
+local.properties
+
+# Gradle build cache (can embed secrets from BuildConfig)
+.gradle/
+build/
+app/build/
+**/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# IDE
+.idea/
+*.iml

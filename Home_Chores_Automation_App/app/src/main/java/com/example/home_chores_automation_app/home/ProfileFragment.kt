@@ -8,6 +8,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -20,13 +21,12 @@ import com.example.home_chores_automation_app.data.model.User
 import com.example.home_chores_automation_app.data.prefs.SessionManager
 import com.example.home_chores_automation_app.data.repository.FirebaseRepository
 import com.example.home_chores_automation_app.databinding.FragmentProfileBinding
-import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.UUID
 
 class ProfileFragment : Fragment() {
 
@@ -37,7 +37,9 @@ class ProfileFragment : Fragment() {
     private val repo = FirebaseRepository.getInstance()
     private var currentUser: User? = null
 
-    private val galleryLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+    private val galleryLauncher = registerForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
         uri?.let { uploadProfilePicture(it) }
     }
 
@@ -59,7 +61,9 @@ class ProfileFragment : Fragment() {
         binding.btnBack.setOnClickListener { findNavController().popBackStack() }
         binding.btnEditProfile.setOnClickListener { findNavController().navigate(R.id.action_profile_to_editProfile) }
         binding.btnChangePassword.setOnClickListener { findNavController().navigate(R.id.action_profile_to_changePassword) }
-        binding.btnChangePicture.setOnClickListener { galleryLauncher.launch("image/*") }
+        binding.btnChangePicture.setOnClickListener {
+            galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        }
 
         // Dark mode toggle
         binding.switchDarkMode.isChecked = session.isDarkMode()
@@ -134,23 +138,39 @@ class ProfileFragment : Fragment() {
 
     private fun uploadProfilePicture(uri: Uri) {
         val userId = session.getCurrentUserId() ?: return
+        if (FirebaseAuth.getInstance().currentUser == null) {
+            Toast.makeText(requireContext(), "Please sign in again", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        binding.btnChangePicture.isEnabled = false
         Toast.makeText(requireContext(), "Uploading...", Toast.LENGTH_SHORT).show()
 
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                val storageRef = FirebaseStorage.getInstance()
-                    .reference.child("profile_pictures/$userId/${UUID.randomUUID()}.jpg")
-                storageRef.putFile(uri).await()
-                val downloadUrl = storageRef.downloadUrl.await().toString()
-
-                repo.updateProfilePictureUrl(userId, downloadUrl)
-                // Update cached user so avatar reflects immediately
+                val downloadUrl = repo.uploadProfilePicture(
+                    requireContext().contentResolver,
+                    uri,
+                    userId
+                )
                 currentUser = currentUser?.copy(profilePictureUrl = downloadUrl)
                 currentUser?.let { setupAvatar(it) }
-
                 Toast.makeText(requireContext(), "Profile picture updated", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Failed to upload picture", Toast.LENGTH_SHORT).show()
+                val message = when {
+                    e.message?.contains("Not signed in", ignoreCase = true) == true ->
+                        "Please sign in again"
+                    e.message?.contains("Could not read", ignoreCase = true) == true ->
+                        "Could not read the selected image"
+                    e is com.google.firebase.storage.StorageException ||
+                        e is FirebaseFirestoreException ->
+                        "Upload denied — enable Firebase Storage in console and check security rules"
+                    else ->
+                        "Failed to upload picture"
+                }
+                Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+            } finally {
+                if (_binding != null) binding.btnChangePicture.isEnabled = true
             }
         }
     }

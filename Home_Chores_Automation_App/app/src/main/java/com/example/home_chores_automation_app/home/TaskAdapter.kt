@@ -18,7 +18,7 @@ class TaskAdapter(
     private val memberNames: Map<String, String>,
     private val currentUserId: String,
     private val adminId: String,
-    private val onCheckedChange: (Task, Boolean) -> Unit,
+    private val onCheckedChange: (Task, Task, Boolean) -> Unit,
     private val onEdit: (Task) -> Unit,
     private val onDelete: (Task) -> Unit
 ) : RecyclerView.Adapter<TaskAdapter.ViewHolder>() {
@@ -115,10 +115,12 @@ class TaskAdapter(
         holder.binding.cbDone.setOnCheckedChangeListener { _, isChecked ->
             val pos = holder.bindingAdapterPosition
             if (pos == RecyclerView.NO_POSITION) return@setOnCheckedChangeListener
+            val previous = tasks[pos]
             val now = System.currentTimeMillis()
-            tasks[pos] = tasks[pos].copy(
+            tasks[pos] = previous.copy(
                 isCompleted = isChecked,
-                completedAt = if (isChecked) now else 0L
+                completedAt = if (isChecked) now else 0L,
+                pointsAwarded = if (isChecked) previous.pointsAwarded else 0
             )
             val updatedTask = tasks[pos]
 
@@ -140,11 +142,18 @@ class TaskAdapter(
             }
             (holder.itemView as? MaterialCardView)?.setCardBackgroundColor(cardColor)
 
-            onCheckedChange(updatedTask, isChecked)
+            onCheckedChange(previous, updatedTask, isChecked)
         }
     }
 
     override fun getItemCount() = tasks.size
+
+    /** Replace all items (keeps same adapter instance for swipe gestures). */
+    fun replaceAll(newTasks: List<Task>) {
+        tasks.clear()
+        tasks.addAll(newTasks)
+        notifyDataSetChanged()
+    }
 
     /** Expose list for swipe gesture reading. */
     fun getTasks(): List<Task> = tasks

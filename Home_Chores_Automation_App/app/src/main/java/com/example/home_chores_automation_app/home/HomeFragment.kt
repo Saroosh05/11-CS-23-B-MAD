@@ -54,9 +54,7 @@ class HomeFragment : Fragment() {
         }
 
         binding.cardStatGroups.setOnClickListener {
-            binding.nestedScrollView.post {
-                binding.nestedScrollView.smoothScrollTo(0, binding.sectionMyGroups.top)
-            }
+            findNavController().navigate(R.id.action_home_to_myGroups)
         }
 
         binding.cardStatPending.setOnClickListener {

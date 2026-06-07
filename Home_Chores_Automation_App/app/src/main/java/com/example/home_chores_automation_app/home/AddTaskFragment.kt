@@ -106,8 +106,10 @@ class AddTaskFragment : Fragment() {
                     .setNegativeButton("Cancel", null)
                     .show()
             } catch (e: Exception) {
-                if (_binding != null)
-                    android.widget.Toast.makeText(requireContext(), "AI error: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                if (_binding != null) {
+                    val message = GeminiRepository.friendlyMessage(e)
+                    android.widget.Toast.makeText(requireContext(), message, android.widget.Toast.LENGTH_LONG).show()
+                }
             } finally {
                 if (_binding != null) {
                     binding.btnSuggestChores.isEnabled = true
@@ -132,8 +134,10 @@ class AddTaskFragment : Fragment() {
                 if (_binding == null) return@launch
                 binding.etDescription.setText(desc)
             } catch (e: Exception) {
-                if (_binding != null)
-                    android.widget.Toast.makeText(requireContext(), "AI error: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                if (_binding != null) {
+                    val message = GeminiRepository.friendlyMessage(e)
+                    android.widget.Toast.makeText(requireContext(), message, android.widget.Toast.LENGTH_LONG).show()
+                }
             } finally {
                 if (_binding != null) {
                     binding.btnExpandDescription.isEnabled = true

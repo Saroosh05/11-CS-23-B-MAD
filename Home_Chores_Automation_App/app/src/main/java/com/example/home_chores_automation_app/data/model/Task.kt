@@ -21,5 +21,6 @@ data class Task(
     @get:PropertyName("reminderSent")
     @set:PropertyName("reminderSent")
     var reminderSent: Boolean = false,
-    val completedAt: Long = 0L
+    val completedAt: Long = 0L,
+    val pointsAwarded: Int = 0   // points granted for the current completion cycle
 )

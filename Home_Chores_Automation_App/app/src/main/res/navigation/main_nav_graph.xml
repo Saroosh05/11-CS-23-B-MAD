@@ -59,6 +59,13 @@
             app:exitAnim="@anim/slide_out_left"
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
+        <action
+            android:id="@+id/action_home_to_myGroups"
+            app:destination="@id/myGroupsFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
     </fragment>
 
     <fragment
@@ -212,6 +219,27 @@
             android:name="filter"
             app:argType="string"
             android:defaultValue="pending" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/myGroupsFragment"
+        android:name="com.example.home_chores_automation_app.home.MyGroupsFragment"
+        android:label="My Groups"
+        tools:layout="@layout/fragment_my_groups">
+        <action
+            android:id="@+id/action_myGroups_to_groupDetail"
+            app:destination="@id/groupDetailFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+        <action
+            android:id="@+id/action_myGroups_to_createGroup"
+            app:destination="@id/createGroupFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
     </fragment>
 
     <fragment
