@@ -5,7 +5,9 @@ import com.example.home_chores_automation_app.data.model.Group
 import com.example.home_chores_automation_app.data.model.Task
 import com.example.home_chores_automation_app.data.model.User
 import com.example.home_chores_automation_app.data.model.UserStats
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -48,6 +50,16 @@ class FirebaseRepository private constructor() {
         } catch (e: Exception) { null }
     }
 
+    suspend fun getUserByEmail(email: String): User? {
+        return try {
+            db.collection("users")
+                .whereEqualTo("email", email)
+                .get().await()
+                .toObjects(User::class.java)
+                .firstOrNull()
+        } catch (e: Exception) { null }
+    }
+
     suspend fun updateUser(user: User) {
         db.collection("users").document(user.id).set(user).await()
         userCache[user.id] = user
@@ -62,8 +74,27 @@ class FirebaseRepository private constructor() {
     // ── GROUPS ───────────────────────────────────────────────────────────────
 
     suspend fun createGroup(group: Group) {
-        db.collection("groups").document(group.id).set(group).await()
-        groupCache[group.id] = group
+        val inviteCode = group.inviteCode.uppercase()
+        val data = hashMapOf(
+            "id" to group.id,
+            "name" to group.name,
+            "type" to group.type,
+            "adminId" to group.adminId,
+            "memberIds" to group.memberIds,
+            "inviteCode" to inviteCode,
+            "createdAt" to group.createdAt,
+            "rotationIndex" to group.rotationIndex
+        )
+        db.collection("groups").document(group.id).set(data).await()
+        // Optional lookup doc — if Firestore rules block this, the group is still created.
+        if (inviteCode.isNotEmpty()) {
+            try {
+                db.collection("invite_codes").document(inviteCode)
+                    .set(mapOf("groupId" to group.id))
+                    .await()
+            } catch (e: Exception) { /* blocked by Firestore rules — join needs rules fix */ }
+        }
+        groupCache[group.id] = group.copy(inviteCode = inviteCode)
     }
 
     /** Returns groups where userId is in memberIds (admin is always added to memberIds on creation). */
@@ -86,14 +117,78 @@ class FirebaseRepository private constructor() {
     }
 
     suspend fun getGroupByInviteCode(code: String): Group? {
+        val normalized = code.uppercase().trim()
+        if (normalized.isEmpty()) return null
+
+        // Direct document read — works even when the user is not yet a group member
+        try {
+            val inviteDoc = db.collection("invite_codes").document(normalized).get().await()
+            if (inviteDoc.exists()) {
+                val groupId = inviteDoc.getString("groupId") ?: return null
+                return getGroupById(groupId)
+            }
+        } catch (e: Exception) { /* fall through to legacy query */ }
+
+        // Legacy fallback for groups created before invite_codes mapping existed
         return try {
             db.collection("groups")
-                .whereEqualTo("inviteCode", code.uppercase())
+                .whereEqualTo("inviteCode", normalized)
                 .get().await()
                 .toObjects(Group::class.java)
                 .firstOrNull()
         } catch (e: Exception) { null }
     }
+
+    /**
+     * Join a group using its invite code.
+     * Uses FieldValue.arrayUnion so a new member can be added without reading the full group first.
+     */
+    suspend fun joinGroupByInviteCode(code: String, userId: String): JoinGroupResult {
+        val normalized = code.uppercase().trim()
+        if (normalized.length != 6) return JoinGroupResult.NotFound
+
+        val groupId = try {
+            val inviteDoc = db.collection("invite_codes").document(normalized).get().await()
+            if (inviteDoc.exists()) {
+                inviteDoc.getString("groupId")
+            } else {
+                db.collection("groups")
+                    .whereEqualTo("inviteCode", normalized)
+                    .get().await()
+                    .documents.firstOrNull()?.id
+            }
+        } catch (e: Exception) {
+            return if (isPermissionDenied(e)) JoinGroupResult.PermissionDenied else JoinGroupResult.Failed
+        } ?: return JoinGroupResult.NotFound
+
+        val existingGroup = try {
+            getGroupById(groupId)
+        } catch (e: Exception) {
+            null
+        }
+        if (existingGroup?.memberIds?.contains(userId) == true) {
+            return JoinGroupResult.AlreadyMember(existingGroup)
+        }
+
+        return try {
+            db.collection("groups").document(groupId)
+                .update("memberIds", FieldValue.arrayUnion(userId))
+                .await()
+            groupCache.remove(groupId)
+            val joinedGroup = getGroupById(groupId) ?: return JoinGroupResult.Failed
+            if (joinedGroup.memberIds.contains(userId)) {
+                JoinGroupResult.Success(joinedGroup)
+            } else {
+                JoinGroupResult.Failed
+            }
+        } catch (e: Exception) {
+            if (isPermissionDenied(e)) JoinGroupResult.PermissionDenied else JoinGroupResult.Failed
+        }
+    }
+
+    private fun isPermissionDenied(e: Exception): Boolean =
+        e is FirebaseFirestoreException &&
+            e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED
 
     suspend fun updateGroup(group: Group) {
         db.collection("groups").document(group.id).set(group).await()
@@ -101,8 +196,14 @@ class FirebaseRepository private constructor() {
     }
 
     suspend fun deleteGroup(groupId: String) {
+        val inviteCode = getGroupById(groupId)?.inviteCode?.uppercase()
         db.collection("groups").document(groupId).delete().await()
         groupCache.remove(groupId)
+        if (!inviteCode.isNullOrEmpty()) {
+            try {
+                db.collection("invite_codes").document(inviteCode).delete().await()
+            } catch (e: Exception) { /* non-fatal */ }
+        }
     }
 
     // ── TASKS ────────────────────────────────────────────────────────────────
@@ -391,4 +492,12 @@ class FirebaseRepository private constructor() {
         }
         flagRef.set(mapOf("lastGeneratedWeek" to weekKey, "generatedAt" to now)).await()
     }
+}
+
+sealed class JoinGroupResult {
+    data class Success(val group: Group) : JoinGroupResult()
+    data class AlreadyMember(val group: Group) : JoinGroupResult()
+    object NotFound : JoinGroupResult()
+    object PermissionDenied : JoinGroupResult()
+    object Failed : JoinGroupResult()
 }

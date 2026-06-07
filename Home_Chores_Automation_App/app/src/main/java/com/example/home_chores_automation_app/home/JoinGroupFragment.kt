@@ -11,6 +11,7 @@ import androidx.navigation.fragment.findNavController
 import com.example.home_chores_automation_app.data.model.AppNotification
 import com.example.home_chores_automation_app.data.prefs.SessionManager
 import com.example.home_chores_automation_app.data.repository.FirebaseRepository
+import com.example.home_chores_automation_app.data.repository.JoinGroupResult
 import com.example.home_chores_automation_app.databinding.FragmentJoinGroupBinding
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -52,36 +53,56 @@ class JoinGroupFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                val group = repo.getGroupByInviteCode(code)
-                if (group == null) {
-                    binding.tilInviteCode.error = "No group found with this invite code"
-                    binding.btnJoin.isEnabled = true
-                    return@launch
+                when (val result = repo.joinGroupByInviteCode(code, userId)) {
+                    is JoinGroupResult.NotFound -> {
+                        binding.tilInviteCode.error = "No group found with this invite code"
+                        binding.btnJoin.isEnabled = true
+                    }
+                    is JoinGroupResult.PermissionDenied -> {
+                        Toast.makeText(
+                            requireContext(),
+                            "Firebase blocked this action. Ask whoever set up Firebase to update Firestore security rules.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        binding.btnJoin.isEnabled = true
+                    }
+                    is JoinGroupResult.Failed -> {
+                        Toast.makeText(
+                            requireContext(),
+                            "Could not join group. Please try again.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        binding.btnJoin.isEnabled = true
+                    }
+                    is JoinGroupResult.AlreadyMember -> {
+                        Toast.makeText(
+                            requireContext(),
+                            "You are already a member of \"${result.group.name}\"",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        findNavController().popBackStack()
+                    }
+                    is JoinGroupResult.Success -> {
+                        val group = result.group
+                        val joinerName = repo.getUserById(userId)?.name ?: "Someone"
+                        repo.addNotification(
+                            AppNotification(
+                                id        = UUID.randomUUID().toString(),
+                                userId    = group.adminId,
+                                title     = "New Member Joined",
+                                message   = "$joinerName joined your group \"${group.name}\"",
+                                isRead    = false,
+                                createdAt = System.currentTimeMillis()
+                            )
+                        )
+                        Toast.makeText(
+                            requireContext(),
+                            "Joined \"${group.name}\" successfully!",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        findNavController().popBackStack()
+                    }
                 }
-
-                if (group.memberIds.contains(userId)) {
-                    Toast.makeText(requireContext(), "You are already a member of \"${group.name}\"", Toast.LENGTH_SHORT).show()
-                    findNavController().popBackStack()
-                    return@launch
-                }
-
-                group.memberIds.add(userId)
-                repo.updateGroup(group)
-
-                val joinerName = repo.getUserById(userId)?.name ?: "Someone"
-                repo.addNotification(
-                    AppNotification(
-                        id        = UUID.randomUUID().toString(),
-                        userId    = group.adminId,
-                        title     = "New Member Joined",
-                        message   = "$joinerName joined your group \"${group.name}\"",
-                        isRead    = false,
-                        createdAt = System.currentTimeMillis()
-                    )
-                )
-
-                Toast.makeText(requireContext(), "Joined \"${group.name}\" successfully!", Toast.LENGTH_SHORT).show()
-                findNavController().popBackStack()
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "Failed to join group", Toast.LENGTH_SHORT).show()
                 binding.btnJoin.isEnabled = true

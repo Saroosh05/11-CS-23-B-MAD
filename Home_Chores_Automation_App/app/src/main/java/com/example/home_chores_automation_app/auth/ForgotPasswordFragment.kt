@@ -9,6 +9,7 @@ import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import com.example.home_chores_automation_app.data.repository.FirebaseRepository
 import com.example.home_chores_automation_app.databinding.FragmentForgotPasswordBinding
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -20,6 +21,7 @@ class ForgotPasswordFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val auth = FirebaseAuth.getInstance()
+    private val repo = FirebaseRepository.getInstance()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -59,6 +61,14 @@ class ForgotPasswordFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             try {
+                if (!isEmailRegistered(email)) {
+                    if (_binding == null) return@launch
+                    binding.tilEmail.error = "No account found with this email"
+                    binding.btnSendReset.isEnabled = true
+                    binding.btnSendReset.text = "Send Reset Link"
+                    return@launch
+                }
+
                 auth.sendPasswordResetEmail(email).await()
                 if (_binding == null) return@launch
                 Toast.makeText(
@@ -69,11 +79,24 @@ class ForgotPasswordFragment : Fragment() {
                 findNavController().popBackStack()
             } catch (e: Exception) {
                 if (_binding == null) return@launch
-                binding.tilEmail.error = "No account found with this email"
+                binding.tilEmail.error = "Could not send reset email. Try again later."
                 binding.btnSendReset.isEnabled = true
                 binding.btnSendReset.text = "Send Reset Link"
             }
         }
+    }
+
+    /**
+     * Firebase Auth intentionally does not error on unknown emails when sending reset links.
+     * We check registration via Auth sign-in methods first, then Firestore users as fallback.
+     */
+    private suspend fun isEmailRegistered(email: String): Boolean {
+        try {
+            val signInMethods = auth.fetchSignInMethodsForEmail(email).await().signInMethods
+            if (!signInMethods.isNullOrEmpty()) return true
+        } catch (_: Exception) { }
+
+        return repo.getUserByEmail(email) != null
     }
 
     override fun onDestroyView() {
